@@ -39,3 +39,13 @@ class Fendley:
                 weights.append(parameter())
 
         self.hamiltonian = Hamiltonian(weights, ops)
+
+        self.example_simplicial_mode = Pauli(
+            self.n,
+            np.zeros(self.n, dtype=bool),
+            np.zeros(self.n, dtype=bool),
+            0,
+        )
+        self.example_simplicial_mode.x[0] = True
+
+        self.labels = [f"f{i+1}" for i in range(self.cap_m)]

@@ -26,7 +26,7 @@ class Hamiltonian:
             raise ValueError("hamiltonian has non-hermitian terms")
 
         self.weights = weights
-        self.ops = ops
+        self.operators = ops
 
     def get_frustration_graph(self) -> Graph:
         """Return the frustration graph with the vertex weights."""
@@ -35,13 +35,13 @@ class Hamiltonian:
             g.add_vertex(i)
         for i in range(self.num_ops):
             for j in range(i + 1, self.num_ops):
-                if self.ops[i].symplectic_inner_product(self.ops[j]):
+                if self.operators[i].symplectic_inner_product(self.operators[j]):
                     g.add_edge(i, j)
         return g
 
     def to_matrix(self) -> NDArray[np.complex128]:
         mat = np.zeros((2**self.n, 2**self.n), dtype=np.complex128)
-        for w, op in zip(self.weights, self.ops):
+        for w, op in zip(self.weights, self.operators):
             mat += w * op.to_matrix()
         return mat
 

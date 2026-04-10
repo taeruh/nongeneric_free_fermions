@@ -2,13 +2,13 @@ from sage.all import Graph
 
 from models.fendley import Fendley
 from models.fukai import Fukai
-
 from models.weights import ConstantWeight, RandomWeight
+from krylov import Generators
 
 
 def run():
-    # model = Fendley(3)
-    model = Fukai(4, beta_3=ConstantWeight(0), beta_5=ConstantWeight(1))
+    model = Fendley(2)
+    # model = Fukai(4, beta_3=ConstantWeight(3), beta_5=ConstantWeight(1))
 
     graph = model.hamiltonian.get_frustration_graph()
     labeled_graph: Graph = graph.relabel(
@@ -17,3 +17,8 @@ def run():
     )
 
     labeled_graph.plot().save_image("output/fendley_graph.png")  # pyright: ignore
+    # for op in model.hamiltonian.operators:
+    #     print(op.to_string())
+    # print(model.example_simplicial_mode.to_string())
+
+    Generators(model.example_simplicial_mode, model.hamiltonian)

@@ -62,7 +62,6 @@ class Fukai:
 
         betas = [self.beta_3, self.beta_5]
 
-        print(self.cap_m_2)
         if self.cap_m_2 < 4:
             first_iter_range = range(2, self.cap_m_2 + 1)
             second_iter_range = None
@@ -88,7 +87,6 @@ class Fukai:
 
 def next_beta(m: int, betas: list[float], fendley_weights: list[float]) -> float:
     assert m > 1
-    print(betas, m)
     return betas[m - 1] / (
         fendley_weights[2 * m - 4 - 1] ** 2 * betas[m - 2]
         - fendley_weights[2 * m - 1] ** 2 * betas[m - 1]
