@@ -82,36 +82,74 @@ class Generators:
                 index += 1
 
         total_num_op_in_etas = sum(len(eta) for eta in self.etas)
+        print(total_num_op_in_etas)
+        print(len(self.vector_to_pauli_map))
         assert total_num_op_in_etas >= len(
             self.vector_to_pauli_map
         ), "not necessarily a bug, but if that doesn't hold, then there are some zero-weight operators in the (probobly last) etas, which can be removed"
 
-        self.num_etas = len(self.etas)
+        self.num_generators = len(self.etas)
 
-        anti_comm_mat = np.zeros((self.num_etas, self.num_etas))
-        for i in range(self.num_etas):
-            for j in range(i, self.num_etas):
-                total_trace = 0
+        anti_comm_mat_etas = np.zeros((self.num_generators, self.num_generators))
+        for i in range(self.num_generators):
+            for j in range(i, self.num_generators):
+                total_trace = 0  # implicitly divided by dim(hilbert space)
                 for weight_i, op_i in self.etas[i]:
                     for weight_j, op_j in self.etas[j]:
                         prod = op_i.multiply_as_paulis(op_j)
                         if prod.is_proportional_to(Pauli.identity(op_i.n)):
                             assert prod.phase in [0, 2]
                             total_trace += (
-                                weight_i * weight_j * (-1) ** (prod.phase // 2)
+                                2 * weight_i * weight_j * (-1) ** (prod.phase // 2)
                             )
-                anti_comm_mat[i, j] = total_trace
-                anti_comm_mat[j, i] = total_trace
+                anti_comm_mat_etas[i, j] = total_trace
+                anti_comm_mat_etas[j, i] = total_trace
 
-        eigvals, eigvecs = linalg.eigh(anti_comm_mat)
-        print(eigvals)
+        eigvals, eigvecs = linalg.eigh(anti_comm_mat_etas)
         for val in eigvals:
             assert not np.isclose(val, 0.0)
             assert val > 0.0
 
-        # self.gammas = []
-        # for i in range(self.num_etas):
-        #     factor = eigvals
+        self.gammas = []
+        for i in range(self.num_generators):
+            # a little bit different to eq. 129 in chapman_unified as we already have the
+            # "i" factor in the etas and we define the anti_comm_mat_etas with a different
+            # factor (only divided by dim(hilbert space) instead of 2 * dim(hilbert space)
+            # TODO:  double check on that these two statements; I'm just guessing here and
+            # set the factor so that the gammas are properly normalised
+            factor = (2 / eigvals[i]) ** (0.5)
+            # factor = (1j) ** (i % 2) / ( eigvals[i] ** (0.5))
+            gamma_vector = np.zeros(len(self.vector_to_pauli_map))
+            for j in range(self.num_generators):
+                gamma_vector += factor * eigvecs[j, i] * self.vectors[j]
+            gamma = []
+            for weight, op in zip(gamma_vector, self.vector_to_pauli_map):
+                if abs(weight) > 1e-10:
+                    gamma.append((weight, op))
+            self.gammas.append(gamma)
+
+        # for gamma in self.gammas:
+        #     for weight, op in gamma:
+        #         print(f"{weight:.4f} {op.to_string()}")
+        #     print()
+
+        anti_comm_mat_gammas = np.zeros(
+            (self.num_generators, self.num_generators), dtype=complex
+        )
+        for i in range(self.num_generators):
+            for j in range(self.num_generators):
+                total_trace = 0
+                for weight_i, op_i in self.gammas[i]:
+                    for weight_j, op_j in self.gammas[j]:
+                        prod = op_i.multiply_as_paulis(op_j)
+                        if prod.is_proportional_to(Pauli.identity(op_i.n)):
+                            assert prod.phase in [0, 2]
+                            total_trace += (
+                                2 * weight_i * weight_j * (-1) ** (prod.phase // 2)
+                            )
+                anti_comm_mat_gammas[i, j] = total_trace
+
+        assert np.allclose(anti_comm_mat_gammas, 2 * np.identity(self.num_generators))
 
 
 # old notes, maybe useful later:

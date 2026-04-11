@@ -7,8 +7,9 @@ from krylov import Generators
 
 
 def run():
-    model = Fendley(3)
+    model = Fendley(4)
     # model = Fukai(4, beta_3=ConstantWeight(3), beta_5=ConstantWeight(1))
+
 
     graph = model.hamiltonian.get_frustration_graph()
     labeled_graph: Graph = graph.relabel(
@@ -21,4 +22,5 @@ def run():
     #     print(op.to_string())
     # print(model.example_simplicial_mode.to_string())
 
-    Generators(model.example_simplicial_mode, model.hamiltonian)
+    generators = Generators(model.example_simplicial_mode, model.hamiltonian)
+    print(f"Number of generators: {generators.num_generators}")
