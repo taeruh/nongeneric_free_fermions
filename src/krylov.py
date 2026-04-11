@@ -40,12 +40,13 @@ class Generators:
                     if ham_op.symplectic_inner_product(op) == 1:
                         comm_weight = weight * ham_weight / 2
                         comm_op = ham_op.multiply_as_paulis(op)
+                        # we give them an extra i to make them hermitian
                         comm_op.phase = (comm_op.phase + 1) % 4
 
                         already_in_vectors = False
                         for i, vec_op in enumerate(self.eta_vector_to_pauli_map):
                             if comm_op.is_proportional_to(vec_op):
-                                sign_phase = comm_op.multiply_as_paulis(vec_op).phase
+                                sign_phase = comm_op.phase_difference(vec_op)
                                 assert sign_phase in [0, 2]
                                 vector[i] += comm_weight * (-1) ** (sign_phase // 2)
                                 already_in_vectors = True
@@ -59,7 +60,7 @@ class Generators:
                         already_in_etas = False
                         for i, (eta_weight, eta_op) in enumerate(eta):
                             if comm_op.is_proportional_to(eta_op):
-                                sign_phase = comm_op.multiply_as_paulis(eta_op).phase
+                                sign_phase = comm_op.phase_difference(eta_op)
                                 assert sign_phase in [0, 2]
                                 eta[i] = (
                                     eta_weight
@@ -176,11 +177,32 @@ class Generators:
                         assert np.allclose(prod, -prod_inverse)
         # }}}
 
-    def gamma_projection(self, pauli: Pauli) -> list[np.complex128]:
-        """given a pauli, return the coefficients of its projection onto the gammas"""
-        coeffs = np.zeros(self.num_generators, dtype=complex)
+        # for gamma in self.gammas:
+        #     print([f"{weight:.4f} {op.to_string()}" for weight, op in gamma])
+
+        self.gamma_bilinears: dict[
+            tuple[int, int], list[tuple[np.complex128, Pauli]]
+        ] = dict()
         for i in range(self.num_generators):
-            coeffs[i] = paulis.list_hilbert_schmidt_inner_product(self.gammas[i], pauli)
+            for j in range(i, self.num_generators):
+                product = paulis.list_multiplication(
+                    self.gammas[i], self.gammas[j]
+                )  # pyright: ignore
+                for w, op in product:
+                    assert w.imag == 0.0
+                    if i != j:
+                        # need to make them hermitian
+                        op.phase = (op.phase + 1) % 4
+                    assert op.get_hermitian_phase() in [0, 2]
+                self.gamma_bilinears[(i, j)] = product
+
+    def bilinear_gamma_projection(self, pauli: Pauli) -> list[tuple[int, int, float]]:
+        """given a pauli, return the coefficients of its projection onto the gammas"""
+        coeffs = []
+        for (i, j), ops in self.gamma_bilinears.items():
+            coeff = paulis.list_hilbert_schmidt_inner_product(ops, pauli)
+            if coeff != 0.0:
+                coeffs.append((i, j, coeff))
         return coeffs
 
 

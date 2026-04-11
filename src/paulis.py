@@ -74,6 +74,14 @@ class Pauli:
     def is_proportional_to(self, other: "Pauli") -> bool:
         return np.array_equal(self.z, other.z) and np.array_equal(self.x, other.x)
 
+    def phase_difference(self, other: "Pauli") -> int:
+        """
+        assuming self and other are proportional, returns the phase difference between
+        self and other, more precisely: self = (i^phase_difference) * other
+        """
+        assert self.is_proportional_to(other)
+        return ((self.phase - other.phase) + 4) % 4
+
     def get_hermitian_phase(self) -> int:
         """
         the phase when writing the pauli as X/Y/Z string
@@ -116,16 +124,49 @@ def list_to_matrix(ops: list[tuple[np.complex128, Pauli]]) -> NDArray[np.complex
     return result
 
 
+def list_multiplication(
+    ops1: list[tuple[np.complex128, Pauli]], ops2: list[tuple[np.complex128, Pauli]]
+) -> list[tuple[np.complex128, Pauli]]:
+    """given two lists of (weight, pauli) pairs, return the list of (weight, pauli)
+    pairs corresponding to the product of the sums of these operators"""
+    result = []
+    for weight1, pauli1 in ops1:
+        for weight2, pauli2 in ops2:
+            prod = pauli1.multiply_as_paulis(pauli2)
+            already_in = False
+            for i, (ret_weight, ret_pauli) in enumerate(result):
+                if prod.is_proportional_to(ret_pauli):
+                    phase = prod.phase_difference(ret_pauli)
+                    result[i] = (
+                        ret_weight + weight1 * weight2 * (1j) ** phase,
+                        ret_pauli,
+                    )
+                    already_in = True
+                    break
+            if not already_in:
+                result.append((weight1 * weight2, prod))
+        to_remove = []
+        for i, (weight, _) in enumerate(result):
+            if abs(weight) < 1e-10:
+                to_remove.append(i)
+        for i in reversed(to_remove):
+            del result[i]
+    return result
+
+
 def list_hilbert_schmidt_inner_product(
-    ops: list[tuple[np.complex128, Pauli]], other: Pauli, unique_list: bool = False
+    ops: list[tuple[np.complex128, Pauli]], pauli: Pauli, unique_list: bool = False
 ) -> np.complex128:
     """given a list of (weight, pauli) pairs, return the hilbert schmidt inner product of
-    the sum of these operators with another pauli"""
+    the sum of these operators with another pauli; the paulis in the list should be
+    hermition"""
+    for _, op in ops:
+        assert op.get_hermitian_phase() in [0, 2]
     total = np.complex128(0.0 + 0.0j)
-    for weight, pauli in ops:
-        if pauli.is_proportional_to(other):
-            prod = pauli.multiply_as_paulis(other)
-            total += weight * (1j) ** prod.phase
+    for weight, op in ops:
+        if op.is_proportional_to(pauli):
+            phase = pauli.phase_difference(op)
+            total += weight * (1j) ** phase
             if unique_list:
                 break
     return total
