@@ -26,8 +26,8 @@ class Generators:
 
                         already_in = False
                         for i, (eta_weight, eta_op) in enumerate(eta):
-                            if op.is_proportional_to(eta_op):
-                                sign_phase = op.multiply_as_paulis(eta_op).phase
+                            if comm_op.is_proportional_to(eta_op):
+                                sign_phase = comm_op.multiply_as_paulis(eta_op).phase
                                 assert sign_phase in [0, 2]
                                 eta[i] = (
                                     eta_weight
