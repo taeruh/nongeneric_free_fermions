@@ -29,7 +29,7 @@ class Generators:
                     if ham_op.symplectic_inner_product(op) == 1:
                         comm_weight = weight * ham_weight / 2
                         comm_op = ham_op.multiply_as_paulis(op)
-                        comm_op.phase = (op.phase + 1) % 4
+                        comm_op.phase = (comm_op.phase + 1) % 4
 
                         already_in = False
                         for i, (eta_weight, eta_op) in enumerate(eta):
@@ -72,10 +72,10 @@ class Generators:
                 self.etas.append(eta)
                 index += 1
 
-        # print(len(self.etas))
+        print(len(self.etas))
         # for eta in self.etas:
-        #     # print([(w, op.to_string()) for w, op in eta])
-        #     print([op.to_string() for _, op in eta])
+        #     # print([(w, p.to_string()) for w, p in eta])
+        #     print([p.to_string() for _, op in eta])
 
 
 # old notes, maybe useful later:
