@@ -36,7 +36,7 @@ class Fukai:
         self.beta_5 = beta_5()
 
         # note that when using these fendley_ lists indexed with the m from the extra
-        # terms we have to subtract and additional -1 because in the paper it starts
+        # fukai terms we have to subtract an additional -1 because in the paper it starts
         # counting at 1 and goes to cap_m (but the lists start at 0 and go to cap_m-1)
         self.fendley_ops: list[Pauli] = []
         self.fendley_weights = []
@@ -60,7 +60,10 @@ class Fukai:
         weights = self.fendley_weights.copy()
         ops = self.fendley_ops.copy()
 
-        betas = [self.beta_3, self.beta_5]
+        # the first two are beta_-1 and beta_1, which are never used and not defined in
+        # the paper, but I put them in here to make the indexing more consistent and
+        # easier to read
+        betas = [0, 0, self.beta_3, self.beta_5]
 
         self.fukai_ops: list[Pauli] = []
         self.fukai_weights: list[float] = []
@@ -73,10 +76,10 @@ class Fukai:
             second_iter_range = range(4, self.cap_m_2 + 1)
         for m in first_iter_range:
             self.fukai_ops.append(next_pauli(m, self.fendley_ops))
-            self.fukai_weights.append(betas[m - 2])
+            self.fukai_weights.append(betas[m])
         if second_iter_range is not None:
             for m in second_iter_range:
-                beta = next_beta(m - 2, betas, self.fendley_weights)
+                beta = next_beta(m, betas, self.fendley_weights)
                 betas.append(beta)
                 self.fukai_ops.append(next_pauli(m, self.fendley_ops))
                 self.fukai_weights.append(beta)
