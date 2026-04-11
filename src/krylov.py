@@ -20,8 +20,8 @@ class Generators:
         """
         self.n = simplicial_mode.n
         self.etas = [[(1.0, simplicial_mode)]]
-        self.vectors = [np.array([1.0])]
-        self.vector_to_pauli_map = [simplicial_mode]
+        self.eta_vectors = [np.array([1.0])]
+        self.eta_vector_to_pauli_map = [simplicial_mode]
 
         index = 0
         stop_signal = lambda index: max_search is not None and index >= max_search
@@ -32,7 +32,7 @@ class Generators:
         while not stop_signal(index):
             last_eta = self.etas[index]
             eta = []
-            vector = np.zeros(len(self.vector_to_pauli_map))
+            vector = np.zeros(len(self.eta_vector_to_pauli_map))
             for weight, op in last_eta:
                 for ham_weight, ham_op in zip(
                     hamiltonian.weights, hamiltonian.operators
@@ -43,7 +43,7 @@ class Generators:
                         comm_op.phase = (comm_op.phase + 1) % 4
 
                         already_in_vectors = False
-                        for i, vec_op in enumerate(self.vector_to_pauli_map):
+                        for i, vec_op in enumerate(self.eta_vector_to_pauli_map):
                             if comm_op.is_proportional_to(vec_op):
                                 sign_phase = comm_op.multiply_as_paulis(vec_op).phase
                                 assert sign_phase in [0, 2]
@@ -51,10 +51,10 @@ class Generators:
                                 already_in_vectors = True
                                 break
                         if not already_in_vectors:
-                            self.vector_to_pauli_map.append(comm_op)
+                            self.eta_vector_to_pauli_map.append(comm_op)
                             vector = np.append(vector, comm_weight)
-                            for i, v in enumerate(self.vectors):
-                                self.vectors[i] = np.append(v, 0.0)
+                            for i, v in enumerate(self.eta_vectors):
+                                self.eta_vectors[i] = np.append(v, 0.0)
 
                         already_in_etas = False
                         for i, (eta_weight, eta_op) in enumerate(eta):
@@ -75,11 +75,11 @@ class Generators:
                         if not already_in_etas:
                             eta.append((comm_weight, comm_op))
 
-            assert linalg.matrix_rank(self.vectors) == index + 1
-            self.vectors.append(vector)
-            rank = linalg.matrix_rank(self.vectors)
+            assert linalg.matrix_rank(self.eta_vectors) == index + 1
+            self.eta_vectors.append(vector)
+            rank = linalg.matrix_rank(self.eta_vectors)
             if rank == index + 1:
-                self.vectors.pop()
+                self.eta_vectors.pop()
                 break
             else:
                 to_delete = []
@@ -96,7 +96,7 @@ class Generators:
 
         total_num_op_in_etas = sum(len(eta) for eta in self.etas)
         assert total_num_op_in_etas + total_num_zero_weight_deletions >= len(
-            self.vector_to_pauli_map
+            self.eta_vector_to_pauli_map
         ), (
             "not necessarily a bug, but if that doesn't hold, then there are some ",
             "zero-weight operators in the (probobly last) etas, which can be removed",
@@ -133,11 +133,11 @@ class Generators:
             # set the factor so that the gammas are properly normalised
             factor = (2 / eigvals[i]) ** (0.5)
             # factor = (1j) ** (i % 2) / ( eigvals[i] ** (0.5))
-            gamma_vector = np.zeros(len(self.vector_to_pauli_map))
+            gamma_vector = np.zeros(len(self.eta_vector_to_pauli_map))
             for j in range(self.num_generators):
-                gamma_vector += factor * eigvecs[j, i] * self.vectors[j]
+                gamma_vector += factor * eigvecs[j, i] * self.eta_vectors[j]
             gamma = []
-            for weight, op in zip(gamma_vector, self.vector_to_pauli_map):
+            for weight, op in zip(gamma_vector, self.eta_vector_to_pauli_map):
                 if abs(weight) > 1e-10:
                     gamma.append((weight, op))
             self.gammas.append(gamma)
@@ -175,6 +175,14 @@ class Generators:
                     else:
                         assert np.allclose(prod, -prod_inverse)
         # }}}
+
+    def gamma_projection(self, pauli: Pauli) -> list[np.complex128]:
+        """given a pauli, return the coefficients of its projection onto the gammas"""
+        coeffs = np.zeros(self.num_generators, dtype=complex)
+        for i in range(self.num_generators):
+            coeffs[i] = paulis.list_hilbert_schmidt_inner_product(self.gammas[i], pauli)
+        return coeffs
+
 
 # old notes, maybe useful later:
 

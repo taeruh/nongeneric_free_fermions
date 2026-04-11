@@ -38,8 +38,8 @@ class Fukai:
         # note that when using these fendley_ lists indexed with the m from the extra
         # terms we have to subtract and additional -1 because in the paper it starts
         # counting at 1 and goes to cap_m (but the lists start at 0 and go to cap_m-1)
-        fendley_ops: list[Pauli] = []
-        fendley_weights = []
+        self.fendley_ops: list[Pauli] = []
+        self.fendley_weights = []
 
         for m in range(self.num_triangles):
             for j, parameter in enumerate(
@@ -54,13 +54,16 @@ class Fukai:
                 op.z[3 * m + j] = True
                 op.z[3 * m + (j + 1)] = True
                 op.x[3 * m + (j + 2)] = True
-                fendley_ops.append(op)
-                fendley_weights.append(parameter())
+                self.fendley_ops.append(op)
+                self.fendley_weights.append(parameter())
 
-        weights = fendley_weights.copy()
-        ops = fendley_ops.copy()
+        weights = self.fendley_weights.copy()
+        ops = self.fendley_ops.copy()
 
         betas = [self.beta_3, self.beta_5]
+
+        self.fukai_ops: list[Pauli] = []
+        self.fukai_weights: list[float] = []
 
         if self.cap_m_2 < 4:
             first_iter_range = range(2, self.cap_m_2 + 1)
@@ -69,14 +72,17 @@ class Fukai:
             first_iter_range = range(2, 3 + 1)
             second_iter_range = range(4, self.cap_m_2 + 1)
         for m in first_iter_range:
-            ops.append(next_pauli(m, fendley_ops))
-            weights.append(betas[m - 2])
+            self.fukai_ops.append(next_pauli(m, self.fendley_ops))
+            self.fukai_weights.append(betas[m - 2])
         if second_iter_range is not None:
             for m in second_iter_range:
-                beta = next_beta(m - 2, betas, fendley_weights)
+                beta = next_beta(m - 2, betas, self.fendley_weights)
                 betas.append(beta)
-                ops.append(next_pauli(m, fendley_ops))
-                weights.append(beta)
+                self.fukai_ops.append(next_pauli(m, self.fendley_ops))
+                self.fukai_weights.append(beta)
+
+        weights.extend(self.fukai_weights)
+        ops.extend(self.fukai_ops)
 
         self.hamiltonian = Hamiltonian(weights, ops)
 

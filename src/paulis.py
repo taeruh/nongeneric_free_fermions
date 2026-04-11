@@ -104,13 +104,28 @@ class Pauli:
         return Pauli(self.n, new_z, new_x, new_phase)
 
 
-def list_to_matrix(paulis: list[tuple[np.complex128, Pauli]]) -> NDArray[np.complex128]:
+def list_to_matrix(ops: list[tuple[np.complex128, Pauli]]) -> NDArray[np.complex128]:
     """given a list of (weight, pauli) pairs, return the matrix representation of the
     sum of these operators"""
-    if len(paulis) == 0:
+    if len(ops) == 0:
         return np.array([[0]], dtype=complex)
-    n = paulis[0][1].n
+    n = ops[0][1].n
     result = np.zeros((2**n, 2**n), dtype=complex)
-    for weight, pauli in paulis:
+    for weight, pauli in ops:
         result += weight * pauli.to_matrix()
     return result
+
+
+def list_hilbert_schmidt_inner_product(
+    ops: list[tuple[np.complex128, Pauli]], other: Pauli, unique_list: bool = False
+) -> np.complex128:
+    """given a list of (weight, pauli) pairs, return the hilbert schmidt inner product of
+    the sum of these operators with another pauli"""
+    total = np.complex128(0.0 + 0.0j)
+    for weight, pauli in ops:
+        if pauli.is_proportional_to(other):
+            prod = pauli.multiply_as_paulis(other)
+            total += weight * (1j) ** prod.phase
+            if unique_list:
+                break
+    return total
