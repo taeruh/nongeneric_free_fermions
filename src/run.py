@@ -7,7 +7,7 @@ from krylov import Generators
 
 
 def run():
-    model = Fendley(5)
+    model = Fendley(3)
     # model = Fukai(4, beta_3=ConstantWeight(3), beta_5=ConstantWeight(1))
 
     graph = model.hamiltonian.get_frustration_graph()

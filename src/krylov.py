@@ -31,7 +31,21 @@ class Generators:
                         comm_op = ham_op.multiply_as_paulis(op)
                         comm_op.phase = (comm_op.phase + 1) % 4
 
-                        already_in = False
+                        already_in_vectors = False
+                        for i, vec_op in enumerate(self.vector_to_pauli_map):
+                            if comm_op.is_proportional_to(vec_op):
+                                sign_phase = comm_op.multiply_as_paulis(vec_op).phase
+                                assert sign_phase in [0, 2]
+                                vector[i] += comm_weight * (-1) ** (sign_phase // 2)
+                                already_in_vectors = True
+                                break
+                        if not already_in_vectors:
+                            self.vector_to_pauli_map.append(comm_op)
+                            vector = np.append(vector, comm_weight)
+                            for i, v in enumerate(self.vectors):
+                                self.vectors[i] = np.append(v, 0.0)
+
+                        already_in_etas = False
                         for i, (eta_weight, eta_op) in enumerate(eta):
                             if comm_op.is_proportional_to(eta_op):
                                 sign_phase = comm_op.multiply_as_paulis(eta_op).phase
@@ -41,26 +55,13 @@ class Generators:
                                     + comm_weight * (-1) ** (sign_phase // 2),
                                     eta_op,
                                 )
-                                already_in = True
+                                already_in_etas = True
+                                assert (
+                                    already_in_vectors
+                                ), "if it's already in etas, then it also must be already in vectors"
                                 break
-                        if not already_in:
+                        if not already_in_etas:
                             eta.append((comm_weight, comm_op))
-
-                            already_in = False
-                            for i, vec_op in enumerate(self.vector_to_pauli_map):
-                                if comm_op.is_proportional_to(vec_op):
-                                    sign_phase = comm_op.multiply_as_paulis(
-                                        vec_op
-                                    ).phase
-                                    assert sign_phase in [0, 2]
-                                    vector[i] += comm_weight * (-1) ** (sign_phase // 2)
-                                    already_in = True
-                                    break
-                            if not already_in:
-                                self.vector_to_pauli_map.append(comm_op)
-                                vector = np.append(vector, comm_weight)
-                                for i, v in enumerate(self.vectors):
-                                    self.vectors[i] = np.append(v, 0.0)
 
             assert linalg.matrix_rank(self.vectors) == index + 1
             self.vectors.append(vector)
@@ -84,6 +85,33 @@ class Generators:
         assert total_num_op_in_etas >= len(
             self.vector_to_pauli_map
         ), "not necessarily a bug, but if that doesn't hold, then there are some zero-weight operators in the (probobly last) etas, which can be removed"
+
+        self.num_etas = len(self.etas)
+
+        anti_comm_mat = np.zeros((self.num_etas, self.num_etas))
+        for i in range(self.num_etas):
+            for j in range(i, self.num_etas):
+                total_trace = 0
+                for weight_i, op_i in self.etas[i]:
+                    for weight_j, op_j in self.etas[j]:
+                        prod = op_i.multiply_as_paulis(op_j)
+                        if prod.is_proportional_to(Pauli.identity(op_i.n)):
+                            assert prod.phase in [0, 2]
+                            total_trace += (
+                                weight_i * weight_j * (-1) ** (prod.phase // 2)
+                            )
+                anti_comm_mat[i, j] = total_trace
+                anti_comm_mat[j, i] = total_trace
+
+        eigvals, eigvecs = linalg.eigh(anti_comm_mat)
+        print(eigvals)
+        for val in eigvals:
+            assert not np.isclose(val, 0.0)
+            assert val > 0.0
+
+        # self.gammas = []
+        # for i in range(self.num_etas):
+        #     factor = eigvals
 
 
 # old notes, maybe useful later:
