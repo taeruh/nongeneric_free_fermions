@@ -69,13 +69,21 @@ class Generators:
                 self.vectors.pop()
                 break
             else:
+                to_delete = []
+                for i, (eta_weight, eta_op) in enumerate(eta):
+                    if abs(eta_weight) == 0:
+                        to_delete.append(i)
+                # reversed because I think python shifts from right to left when deleting
+                # inidices in a list, but I might be wrong
+                for i in reversed(to_delete):
+                    eta.pop(i)
                 self.etas.append(eta)
                 index += 1
 
-        print(len(self.etas))
-        # for eta in self.etas:
-        #     # print([(w, p.to_string()) for w, p in eta])
-        #     print([p.to_string() for _, op in eta])
+        total_num_op_in_etas = sum(len(eta) for eta in self.etas)
+        assert total_num_op_in_etas >= len(
+            self.vector_to_pauli_map
+        ), "not necessarily a bug, but if that doesn't hold, then there are some zero-weight operators in the (probobly last) etas, which can be removed"
 
 
 # old notes, maybe useful later:
