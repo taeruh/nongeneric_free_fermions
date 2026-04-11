@@ -2,6 +2,7 @@ import numpy as np
 from numpy import linalg
 
 from hamiltonian import Hamiltonian
+import paulis
 from paulis import Pauli
 
 
@@ -12,12 +13,22 @@ class Generators:
         hamiltonian: Hamiltonian,
         max_search: int | None = None,
     ):
+        """
+        The hamiltonian is assumed to be simplicial and claw-free, and the simplicial mode
+        is assumed to be a simplicial mode of the hamiltonian (it probably still runs fine
+        if not, however, the results might be unexpected and it may take forever).
+        """
+        self.n = simplicial_mode.n
         self.etas = [[(1.0, simplicial_mode)]]
         self.vectors = [np.array([1.0])]
         self.vector_to_pauli_map = [simplicial_mode]
 
         index = 0
         stop_signal = lambda index: max_search is not None and index >= max_search
+        # just used for an assertion, but it is interesting to note that the number of
+        # zero-weight deletions in each eta is quite high, which is probably the magic due
+        # to the fact that we are simplicial and claw-free
+        total_num_zero_weight_deletions = 0
         while not stop_signal(index):
             last_eta = self.etas[index]
             eta = []
@@ -56,9 +67,10 @@ class Generators:
                                     eta_op,
                                 )
                                 already_in_etas = True
-                                assert (
-                                    already_in_vectors
-                                ), "if it's already in etas, then it also must be already in vectors"
+                                assert already_in_vectors, (
+                                    "if it's already in etas, "
+                                    "then it also must be already in vectors"
+                                )
                                 break
                         if not already_in_etas:
                             eta.append((comm_weight, comm_op))
@@ -76,17 +88,19 @@ class Generators:
                         to_delete.append(i)
                 # reversed because I think python shifts from right to left when deleting
                 # inidices in a list, but I might be wrong
+                total_num_zero_weight_deletions += len(to_delete)
                 for i in reversed(to_delete):
                     eta.pop(i)
                 self.etas.append(eta)
                 index += 1
 
         total_num_op_in_etas = sum(len(eta) for eta in self.etas)
-        print(total_num_op_in_etas)
-        print(len(self.vector_to_pauli_map))
-        assert total_num_op_in_etas >= len(
+        assert total_num_op_in_etas + total_num_zero_weight_deletions >= len(
             self.vector_to_pauli_map
-        ), "not necessarily a bug, but if that doesn't hold, then there are some zero-weight operators in the (probobly last) etas, which can be removed"
+        ), (
+            "not necessarily a bug, but if that doesn't hold, then there are some ",
+            "zero-weight operators in the (probobly last) etas, which can be removed",
+        )
 
         self.num_generators = len(self.etas)
 
@@ -128,11 +142,7 @@ class Generators:
                     gamma.append((weight, op))
             self.gammas.append(gamma)
 
-        # for gamma in self.gammas:
-        #     for weight, op in gamma:
-        #         print(f"{weight:.4f} {op.to_string()}")
-        #     print()
-
+        # exhaustively check that the gammas behave correctly {{{
         anti_comm_mat_gammas = np.zeros(
             (self.num_generators, self.num_generators), dtype=complex
         )
@@ -151,6 +161,20 @@ class Generators:
 
         assert np.allclose(anti_comm_mat_gammas, 2 * np.identity(self.num_generators))
 
+        if self.n <= 8:  # otherwise this is too expensive
+            for i in range(self.num_generators):
+                for j in range(self.num_generators):
+                    prod = paulis.list_to_matrix(
+                        self.gammas[i]
+                    ) @ paulis.list_to_matrix(self.gammas[j])
+                    prod_inverse = paulis.list_to_matrix(
+                        self.gammas[j]
+                    ) @ paulis.list_to_matrix(self.gammas[i])
+                    if i == j:
+                        assert np.allclose(prod, np.identity(2**self.n))
+                    else:
+                        assert np.allclose(prod, -prod_inverse)
+        # }}}
 
 # old notes, maybe useful later:
 

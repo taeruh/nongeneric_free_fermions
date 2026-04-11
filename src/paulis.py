@@ -102,3 +102,15 @@ class Pauli:
             if self.x[i] and other.z[i]:
                 new_phase = (new_phase + 2) % 4
         return Pauli(self.n, new_z, new_x, new_phase)
+
+
+def list_to_matrix(paulis: list[tuple[np.complex128, Pauli]]) -> NDArray[np.complex128]:
+    """given a list of (weight, pauli) pairs, return the matrix representation of the
+    sum of these operators"""
+    if len(paulis) == 0:
+        return np.array([[0]], dtype=complex)
+    n = paulis[0][1].n
+    result = np.zeros((2**n, 2**n), dtype=complex)
+    for weight, pauli in paulis:
+        result += weight * pauli.to_matrix()
+    return result

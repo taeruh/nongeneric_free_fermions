@@ -7,7 +7,7 @@ from krylov import Generators
 
 
 def run():
-    model = Fendley(4)
+    model = Fendley(2)
     # model = Fukai(4, beta_3=ConstantWeight(3), beta_5=ConstantWeight(1))
 
 
