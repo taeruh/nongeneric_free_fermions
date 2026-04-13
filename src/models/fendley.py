@@ -22,8 +22,8 @@ class Fendley:
         self.beta = beta
         self.gamma = gamma
 
-        ops = []
-        weights = []
+        self.ops = []
+        self.weights = []
         for i in range(self.num_triangles):
             for j, parameter in enumerate([self.alpha, self.beta, self.gamma]):
                 op = Pauli(
@@ -35,17 +35,73 @@ class Fendley:
                 op.z[3 * i + j] = True
                 op.z[3 * i + (j + 1)] = True
                 op.x[3 * i + (j + 2)] = True
-                ops.append(op)
-                weights.append(parameter())
+                self.ops.append(op)
+                self.weights.append(parameter())
 
-        self.hamiltonian = Hamiltonian(weights, ops)
+        self.hamiltonian = Hamiltonian(self.weights, self.ops)
 
-        self.example_simplicial_mode = Pauli(
+        self.example_simplicial_mode1 = Pauli(
             self.n,
             np.zeros(self.n, dtype=bool),
             np.zeros(self.n, dtype=bool),
             0,
         )
-        self.example_simplicial_mode.x[0] = True
+        self.example_simplicial_mode1.x[0] = True
+        self.example_simplicial_mode2 = Pauli(
+            self.n,
+            np.zeros(self.n, dtype=bool),
+            np.zeros(self.n, dtype=bool),
+            0,
+        )
+        self.example_simplicial_mode2.x[1] = True
+        self.example_simplicial_mode3 = Pauli(
+            self.n,
+            np.zeros(self.n, dtype=bool),
+            np.zeros(self.n, dtype=bool),
+            0,
+        )
+        self.example_simplicial_mode3.x[0] = True
+        self.example_simplicial_mode3.x[2] = True
 
         self.labels = [f"f{i+1}" for i in range(self.cap_m)]
+
+    def clone(self):
+        clone = Fendley(self.num_triangles, self.alpha, self.beta, self.gamma)
+        return clone
+
+    def extend_with_currents(
+        self,
+        currents: list[list[tuple[np.complex128, Pauli]]],
+        current_alpha: list[np.float64],
+    ):
+        assert len(currents) == len(current_alpha)
+        self.current_alpha = current_alpha
+
+        for alpha, current in zip(current_alpha, currents):
+            for w, op in current:
+                already_in = False
+                for i, (self_w, self_op) in enumerate(zip(self.weights, self.ops)):
+                    if op.is_proportional_to(self_op):
+                        phase = op.phase_difference(self_op)
+                        self.weights[i] += alpha * w * (1j) ** phase
+                        already_in = True
+                        break
+                if not already_in:
+                    self.ops.append(op)
+                    self.weights.append(alpha * w)
+                    self.hamiltonian.num_ops += 1
+        to_remove = []
+        for i, w in enumerate(self.weights):
+            if np.isclose(w, 0):
+                to_remove.append(i)
+        for i in reversed(to_remove):
+            del self.weights[i]
+            del self.ops[i]
+            self.hamiltonian.num_ops -= 1
+            if i < self.cap_m:
+                del self.labels[i]
+        len_labels = len(self.labels)
+        for i in range(len_labels, self.hamiltonian.num_ops):
+            self.labels.append(f"c_{i - len_labels + 1}")
+
+        self.hamiltonian = Hamiltonian(self.weights, self.ops)

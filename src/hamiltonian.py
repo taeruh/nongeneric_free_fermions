@@ -21,9 +21,9 @@ class Hamiltonian:
         has_prop_terms, _ = has_proportional_terms(ops)
         if has_prop_terms:
             raise ValueError("hamiltonian has proportional terms")
-        has_non_herm_terms, _ = has_non_hermitian_terms(ops)
-        if has_non_herm_terms:
-            raise ValueError("hamiltonian has non-hermitian terms")
+        # has_non_herm_terms, _ = has_non_hermitian_terms(ops)
+        # if has_non_herm_terms:
+        #     raise ValueError("hamiltonian has non-hermitian terms")
 
         self.weights = weights
         self.operators = ops

@@ -145,16 +145,37 @@ def list_multiplication(
                     break
             if not already_in:
                 result.append((weight1 * weight2, prod))
-        to_remove = []
-        for i, (weight, _) in enumerate(result):
-            if abs(weight) < 1e-10:
-                to_remove.append(i)
-        for i in reversed(to_remove):
-            del result[i]
+    to_remove = []
+    for i, (weight, _) in enumerate(result):
+        if np.isclose(weight, 0):
+            to_remove.append(i)
+    for i in reversed(to_remove):
+        del result[i]
+    return result
+
+def list_addition(
+    ops1: list[tuple[np.complex128, Pauli]], ops2: list[tuple[np.complex128, Pauli]]
+) -> list[tuple[np.complex128, Pauli]]:
+    """given two lists of (weight, pauli) pairs, return the list of (weight, pauli)
+    pairs corresponding to the sum of the sums of these operators"""
+    result = ops1.copy()
+    for weight, pauli in ops2:
+        already_in = False
+        for i, (ret_weight, ret_pauli) in enumerate(result):
+            if pauli.is_proportional_to(ret_pauli):
+                phase = pauli.phase_difference(ret_pauli)
+                result[i] = (
+                    ret_weight + weight * (1j) ** phase,
+                    ret_pauli,
+                )
+                already_in = True
+                break
+        if not already_in:
+            result.append((weight, pauli))
     return result
 
 
-def list_hilbert_schmidt_inner_product(
+def list_and_single_hilbert_schmidt_inner_product(
     ops: list[tuple[np.complex128, Pauli]], pauli: Pauli, unique_list: bool = False
 ) -> np.complex128:
     """given a list of (weight, pauli) pairs, return the hilbert schmidt inner product of

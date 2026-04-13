@@ -19,7 +19,9 @@ class Generators:
         if not, however, the results might be unexpected and it may take forever).
         """
         self.n = simplicial_mode.n
-        self.etas = [[(1.0, simplicial_mode)]]
+        self.etas: list[list[tuple[np.complex128, Pauli]]] = [
+            [(np.complex128(1.0), simplicial_mode)]
+        ]
         self.eta_vectors = [np.array([1.0])]
         self.eta_vector_to_pauli_map = [simplicial_mode]
 
@@ -32,13 +34,15 @@ class Generators:
         while not stop_signal(index):
             last_eta = self.etas[index]
             eta = []
-            vector = np.zeros(len(self.eta_vector_to_pauli_map))
+            vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=complex)
             for weight, op in last_eta:
                 for ham_weight, ham_op in zip(
                     hamiltonian.weights, hamiltonian.operators
                 ):
                     if ham_op.symplectic_inner_product(op) == 1:
-                        comm_weight = weight * ham_weight / 2
+                        # cf. paper definition (the 1/2 cancels since we get the product
+                        # twice from the commutator)
+                        comm_weight = weight * ham_weight
                         comm_op = ham_op.multiply_as_paulis(op)
                         # we give them an extra i to make them hermitian
                         comm_op.phase = (comm_op.phase + 1) % 4
@@ -76,6 +80,15 @@ class Generators:
                         if not already_in_etas:
                             eta.append((comm_weight, comm_op))
 
+                        # PERF: we can actually skip the already_in_etas check is
+                        # already_in_vectors is false, but for now just leave it there and
+                        # do this assert here to catch bugs
+                        if not already_in_vectors:
+                            assert not already_in_etas, (
+                                "if it's not already in vectors, "
+                                "then it cannot be already in etas"
+                            )
+
             assert linalg.matrix_rank(self.eta_vectors) == index + 1
             self.eta_vectors.append(vector)
             rank = linalg.matrix_rank(self.eta_vectors)
@@ -105,7 +118,9 @@ class Generators:
 
         self.num_generators = len(self.etas)
 
-        anti_comm_mat_etas = np.zeros((self.num_generators, self.num_generators))
+        anti_comm_mat_etas = np.zeros(
+            (self.num_generators, self.num_generators), dtype=complex
+        )
         for i in range(self.num_generators):
             for j in range(i, self.num_generators):
                 total_trace = 0  # implicitly divided by dim(hilbert space)
@@ -132,9 +147,9 @@ class Generators:
             # factor (only divided by dim(hilbert space) instead of 2 * dim(hilbert space)
             # TODO:  double check on that these two statements; I'm just guessing here and
             # set the factor so that the gammas are properly normalised
-            factor = (2 / eigvals[i]) ** (0.5)
+            factor = np.complex128((2 / eigvals[i]) ** (0.5))
             # factor = (1j) ** (i % 2) / ( eigvals[i] ** (0.5))
-            gamma_vector = np.zeros(len(self.eta_vector_to_pauli_map))
+            gamma_vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=complex)
             for j in range(self.num_generators):
                 gamma_vector += factor * eigvecs[j, i] * self.eta_vectors[j]
             gamma = []
@@ -177,17 +192,14 @@ class Generators:
                         assert np.allclose(prod, -prod_inverse)
         # }}}
 
-        # for gamma in self.gammas:
-        #     print([f"{weight:.4f} {op.to_string()}" for weight, op in gamma])
-
+    def init_gamma_bilinears(self):
+        # PERF: this loop takes quite some time
         self.gamma_bilinears: dict[
             tuple[int, int], list[tuple[np.complex128, Pauli]]
         ] = dict()
         for i in range(self.num_generators):
             for j in range(i, self.num_generators):
-                product = paulis.list_multiplication(
-                    self.gammas[i], self.gammas[j]
-                )  # pyright: ignore
+                product = paulis.list_multiplication(self.gammas[i], self.gammas[j])
                 for w, op in product:
                     assert w.imag == 0.0
                     if i != j:
@@ -200,10 +212,45 @@ class Generators:
         """given a pauli, return the coefficients of its projection onto the gammas"""
         coeffs = []
         for (i, j), ops in self.gamma_bilinears.items():
-            coeff = paulis.list_hilbert_schmidt_inner_product(ops, pauli)
+            coeff = paulis.list_and_single_hilbert_schmidt_inner_product(ops, pauli)
             if coeff != 0.0:
                 coeffs.append((i, j, coeff))
         return coeffs
+
+    def init_eta_currents(self):
+        self.eta_currents: list[list[tuple[np.complex128, Pauli]]] = []
+        for l in range(self.num_generators):
+            current = []
+            for k in range(l):
+                l_k = l - k
+                if k == l_k:
+                    continue
+                # TODO: Maybe we can do something smarter here (a little bit): it looks
+                # like eta[l] and eta[l-k] nearly anticommute if i != j, the
+                # anticommutator is most of the time just the identity (up to a factor)
+                # (except for some excpetions, I think ...)
+                prod = paulis.list_multiplication(self.etas[k], self.etas[l_k])
+                prod_inv = paulis.list_multiplication(self.etas[l_k], self.etas[k])
+                commutator = paulis.list_addition(
+                    prod, [(-w, op) for w, op in prod_inv]
+                )
+                if k % 2 == 1:
+                    for i, (w, op) in enumerate(commutator):
+                        commutator[i] = (-w, op)
+                current = paulis.list_addition(current, commutator)
+            to_delete = []
+            for i, (weight, op) in enumerate(current):
+                if abs(weight) == 0.0:
+                    to_delete.append(i)
+            for i in reversed(to_delete):
+                current.pop(i)
+            # make them hermitian:
+            for i, (weight, op) in enumerate(current):
+                op.phase = (op.phase + 1) % 4
+                assert op.get_hermitian_phase() in [0, 2]
+                current[i] = (weight, op)
+            self.eta_currents.append(current)
+            
 
 
 # old notes, maybe useful later:
