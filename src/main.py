@@ -5,7 +5,8 @@ import run
 
 def main():
     os.makedirs("output", exist_ok=True)
-    run.run()
+    # run.run()
+    run.currents_plot()
     # run.trying_to_reconstruct_fukai_from_bilinears()
 
 

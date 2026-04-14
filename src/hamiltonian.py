@@ -21,12 +21,15 @@ class Hamiltonian:
         has_prop_terms, _ = has_proportional_terms(ops)
         if has_prop_terms:
             raise ValueError("hamiltonian has proportional terms")
-        # has_non_herm_terms, _ = has_non_hermitian_terms(ops)
-        # if has_non_herm_terms:
-        #     raise ValueError("hamiltonian has non-hermitian terms")
+        has_non_herm_terms, _ = has_non_hermitian_terms(ops)
+        if has_non_herm_terms:
+            raise ValueError("hamiltonian has non-hermitian terms")
 
         self.weights = weights
         self.operators = ops
+
+        self.pauli_l1_norm = sum(abs(w) for w in self.weights)
+        self.pauli_l2_norm = np.sqrt(sum(abs(w) ** 2 for w in self.weights))
 
     def get_frustration_graph(self) -> Graph:
         """Return the frustration graph with the vertex weights."""

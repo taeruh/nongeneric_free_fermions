@@ -1,6 +1,8 @@
+import pickle
 import numpy as np
 from sage.all import Graph
 from sage.all import graphs  # pyright: ignore  (this is sage.graphs ...)
+import matplotlib.pyplot as plt
 
 import paulis
 from hamiltonian import Hamiltonian
@@ -9,6 +11,112 @@ from models.fukai import Fukai
 from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
 import house_of_graphs
+
+
+def currents_plot():
+    low_num_triangles = 1
+    up_num_triangles = 5
+
+    # num_triangles 1      2      3      4      5     6     7     8
+    tolerances = [1e-12, 1e-12, 1e-12, 1e-10, 1e-8, 1e-6, 1e-4, 1e-2]
+
+    # weight = 3.333333333333333333238233
+    # weight = 10000.0
+    weight = 1
+    # alpha = ConstantWeight(np.float64(1))
+    alpha = ConstantWeight(np.float64(weight))
+    # beta = ConstantWeight(np.float64(3))
+    beta = ConstantWeight(np.float64(weight))
+    # gamma = ConstantWeight(np.float64(5))
+    gamma = ConstantWeight(np.float64(weight))
+    currents_alpha = ConstantWeight(np.float64(1))
+    simplicial_mode_choice = "example_simplicial_mode1"
+
+    load_data = False
+    # load_data = True
+
+    file_identifier = (
+        f"{alpha}_{beta}_{gamma}_{currents_alpha}_{simplicial_mode_choice}"
+    )
+    data_file = f"output/currents_data_{file_identifier}.pkl"
+    plot_file = f"output/currents_plot_{file_identifier}.pdf"
+
+    if load_data:
+        with open(data_file, "rb") as f:
+            num_vertices, num_claws = pickle.load(f)
+    else:
+        # TODO: I should save the results for each num_triangles directly in a file,
+        # because for higher num triangles it might just run out of time (or out of memory
+        # when the tolerance was chosen too low and the gram-schmidt process never ends
+        # and blows up)
+        # TODO: actually use the max_search parameter to stop earlier... if the tolerance
+        # was chosen too low (we actually know that max_search is 2*independence number +
+        # 1, so just use that and assert that we never get more than that (would be a bug)
+        num_vertices = []
+        num_claws = []  # up to permutation
+        for num_triangles in range(low_num_triangles, up_num_triangles + 1):
+            tolerance = tolerances[num_triangles - 1]
+            print(tolerance)
+            print(f"Processing num_triangles={num_triangles}...")
+            fendley = Fendley(num_triangles, alpha, beta, gamma)
+            simplicial_mode = getattr(fendley, simplicial_mode_choice)
+            generators = Generators(
+                simplicial_mode,
+                fendley.hamiltonian,
+                eta_normalisation_factor=np.float64(
+                    len(fendley.hamiltonian.operators)
+                    / fendley.hamiltonian.pauli_l1_norm
+                ),
+                orthogonal_tolerance=tolerance,
+            )
+            print(f"Number of generators: {generators.num_generators}")
+            generators.init_eta_currents()
+            print("got currents")
+            fendley.extend_with_currents(
+                generators.eta_currents,
+                [currents_alpha() for _ in generators.eta_currents],
+            )
+            print("extended_model")
+            graph = fendley.hamiltonian.get_frustration_graph()
+            # TODO: do we care about the identity vertex, i.e., include it in the graph and
+            # the number of vertices or should I remove it from the hamiltonian?
+            num_vertices.append(fendley.hamiltonian.num_ops)
+            print(f"Number of vertices in the frustration graph: {num_vertices[-1]}")
+            # sagemaths SubgraphSearch does go over all subgraphs in the graph isomorphism
+            # class of that subgraph (sadly there is no option to return the single unique
+            # up to graph isomorphism subgraph), importantly the graph isomorphism class
+            # is in general not the same as the relabeling class, it is smaller, since it
+            # preserves the edges; therefore, for each claw we get 6 versions of it, which
+            # correspond to the 6 permutations of the 3 outer vertices
+            # PERF: this here is the bottleneck; I could do a lot of stuff in krylov.py in
+            # Rust, but it doesn't really matter, as this here is going to take way longer
+            num_claws.append(
+                graph.subgraph_search_count(graphs.ClawGraph(), induced=True) / 6
+            )
+            print(f"Number of claws in the frustration graph: {num_claws[-1]}")
+        with open(data_file, "wb") as f:
+            pickle.dump((num_vertices, num_claws), f)
+
+    # TODO: the claw plot probably need a log scale
+    fig = plt.figure(figsize=(10, 10))
+    gs = fig.add_gridspec(2, 1)
+    axes = []
+    x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
+    for i, (y, label) in enumerate(
+        zip([num_vertices, num_claws], ["Number of vertices", "Number of claws"])
+    ):
+        ax = fig.add_subplot(gs[i, 0])
+        axes.append(ax)
+        ax.plot(x, y)
+        ax.set_ylabel(label)
+        ax.set_xticks(x)
+    ax = axes[1]
+    ax.set_xlabel("Number of triangles")
+    ax = axes[0]
+    ax.set_title(file_identifier)
+    # plt.tight_layout()
+    plt.subplots_adjust(top=0.95, bottom=0.06, left=0.08, right=0.95)
+    plt.savefig(plot_file)
 
 
 def run():
@@ -83,7 +191,11 @@ def run():
 def trying_to_reconstruct_fukai_from_bilinears():
     num_triangles = 3
     fendley = Fendley(num_triangles)
-    fukai = Fukai(num_triangles, beta_3=ConstantWeight(1), beta_5=ConstantWeight(1))
+    fukai = Fukai(
+        num_triangles,
+        beta_3=ConstantWeight(np.float64(1)),
+        beta_5=ConstantWeight(np.float64(1)),
+    )
 
     fukai_graph = fukai.hamiltonian.get_frustration_graph()
     fukai_labeled_graph: Graph = fukai_graph.relabel(

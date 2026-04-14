@@ -11,12 +11,28 @@ class Generators:
         self,
         simplicial_mode: Pauli,
         hamiltonian: Hamiltonian,
+        eta_normalisation_factor: np.float64 = np.float64(1.0),
+        orthogonal_tolerance: float = 1e-9,
         max_search: int | None = None,
     ):
         """
         The hamiltonian is assumed to be simplicial and claw-free, and the simplicial mode
         is assumed to be a simplicial mode of the hamiltonian (it probably still runs fine
         if not, however, the results might be unexpected and it may take forever).
+
+
+        a potentially good choice for the eta_normalisation_factor is
+        len(hamiltonian.operators) / hamiltonian.pauli_l1_norm
+        so that we don't run into numerical issues when checking for linear independence
+        computing the eigenvalues of the anti_comm_mat_etas (the pauli_l2_norm works not
+        so well) (numpy.linalg.(matrix_rank, eigh) go completely batshit when the numbers
+        are too large; using numpy.linalg.svd directly) -> instead of using matrix_rank, I
+        do a Gram-Schmidt process below with tolerance which is potentially more stable
+        than an singular value decomposition with tolerance (which is what matrix_rank
+        basically does, I think), however it still goes batshit when we don't normalise
+        because the coefficients in the eta vectors just explode without normalisation;
+        even with normalisation one has to be careful and it is probably best to always
+        print the norms in the Gram-Schmidt process and check that it looks sensible
         """
         self.n = simplicial_mode.n
         self.etas: list[list[tuple[np.complex128, Pauli]]] = [
@@ -31,6 +47,9 @@ class Generators:
         # zero-weight deletions in each eta is quite high, which is probably the magic due
         # to the fact that we are simplicial and claw-free
         total_num_zero_weight_deletions = 0
+        gram_schmidt_process = GramSchmidtProcess(
+            self.eta_vectors[0], tolerance=orthogonal_tolerance
+        )
         while not stop_signal(index):
             last_eta = self.etas[index]
             eta = []
@@ -42,7 +61,8 @@ class Generators:
                     if ham_op.symplectic_inner_product(op) == 1:
                         # cf. paper definition (the 1/2 cancels since we get the product
                         # twice from the commutator)
-                        comm_weight = weight * ham_weight
+                        # comm_weight = weight * ham_weight / hamiltonian.pauli_l2_norm
+                        comm_weight = weight * ham_weight * eta_normalisation_factor
                         comm_op = ham_op.multiply_as_paulis(op)
                         # we give them an extra i to make them hermitian
                         comm_op.phase = (comm_op.phase + 1) % 4
@@ -58,8 +78,9 @@ class Generators:
                         if not already_in_vectors:
                             self.eta_vector_to_pauli_map.append(comm_op)
                             vector = np.append(vector, comm_weight)
-                            for i, v in enumerate(self.eta_vectors):
-                                self.eta_vectors[i] = np.append(v, 0.0)
+                            # for i, v in enumerate(self.eta_vectors):
+                            #     self.eta_vectors[i] = np.append(v, 0.0)
+                            gram_schmidt_process.append_zeros()
 
                         already_in_etas = False
                         for i, (eta_weight, eta_op) in enumerate(eta):
@@ -89,20 +110,20 @@ class Generators:
                                 "then it cannot be already in etas"
                             )
 
-            assert linalg.matrix_rank(self.eta_vectors) == index + 1
-            self.eta_vectors.append(vector)
-            rank = linalg.matrix_rank(self.eta_vectors)
-            if rank == index + 1:
-                self.eta_vectors.pop()
+            current_rank = gram_schmidt_process.basis.shape[1]
+            assert current_rank == index + 1
+            if not gram_schmidt_process.add_vector(vector):
+                # TODO: see the todo below in GramSchmidtProcess.add_vector,
+                print(f"Gram-Schmidt process terminated at rank {current_rank}")
                 break
             else:
                 to_delete = []
                 for i, (eta_weight, eta_op) in enumerate(eta):
-                    if abs(eta_weight) == 0:
+                    if np.isclose(eta_weight, 0):
                         to_delete.append(i)
+                total_num_zero_weight_deletions += len(to_delete)
                 # reversed because I think python shifts from right to left when deleting
                 # inidices in a list, but I might be wrong
-                total_num_zero_weight_deletions += len(to_delete)
                 for i in reversed(to_delete):
                     eta.pop(i)
                 self.etas.append(eta)
@@ -118,6 +139,7 @@ class Generators:
 
         self.num_generators = len(self.etas)
 
+    def init_gammas(self):
         anti_comm_mat_etas = np.zeros(
             (self.num_generators, self.num_generators), dtype=complex
         )
@@ -135,7 +157,9 @@ class Generators:
                 anti_comm_mat_etas[i, j] = total_trace
                 anti_comm_mat_etas[j, i] = total_trace
 
+        print(anti_comm_mat_etas)
         eigvals, eigvecs = linalg.eigh(anti_comm_mat_etas)
+        print(eigvals)
         for val in eigvals:
             assert not np.isclose(val, 0.0)
             assert val > 0.0
@@ -250,24 +274,32 @@ class Generators:
                 assert op.get_hermitian_phase() in [0, 2]
                 current[i] = (weight, op)
             self.eta_currents.append(current)
-            
 
 
-# old notes, maybe useful later:
+class GramSchmidtProcess:
+    def __init__(self, first_vector: np.ndarray, tolerance: float = 1e-9):
+        norm = linalg.norm(first_vector)
+        assert norm > 0.0
+        self.basis = np.array([first_vector / norm], dtype=complex).T
+        self.tolerance = tolerance
 
-# row_length = len(vector_to_pauli_map)
-# a = np.array(vectors[:-1])
-# for _ in range(row_length - (len(vectors) - 1)):
-#     a = np.vstack([a, np.zeros(row_length)])
-# a = a.T
-# print(a)
-# b = vectors[-1]
-# print(b)
+    def append_zeros(self):
+        self.basis = np.vstack(
+            [self.basis, np.zeros((1, self.basis.shape[1]), dtype=complex)]
+        )
 
-# solution = np.linalg.solve(a, b)
-# print("Solution:", solution)
-
-# for eta in etas:
-#     for weight, op in eta:
-#         print(f"{weight:.4f} {op.to_string()}")
-#     print()
+    def add_vector(self, vector: np.ndarray) -> bool:
+        # print(vector)
+        assert len(vector) == self.basis.shape[0]
+        projection = self.basis @ (self.basis.conj().T @ vector)
+        orthogonal_component = vector - projection
+        norm = linalg.norm(orthogonal_component)
+        # TODO: print this here into some file which one should always check for sensible
+        # values
+        print(f"Gram-Schmidt: norm of orthogonal component is {norm}")
+        if norm > self.tolerance:
+            new_basis_vector = orthogonal_component / norm
+            self.basis = np.hstack([self.basis, new_basis_vector[:, np.newaxis]])
+            return True
+        else:
+            return False

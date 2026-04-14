@@ -11,9 +11,9 @@ class Fendley:
     def __init__(
         self,
         num_triangles: int,
-        alpha: Weight = ConstantWeight(1.0),
-        beta: Weight = ConstantWeight(1.0),
-        gamma: Weight = ConstantWeight(1.0),
+        alpha: Weight = ConstantWeight(np.float64(1.0)),
+        beta: Weight = ConstantWeight(np.float64(1.0)),
+        gamma: Weight = ConstantWeight(np.float64(1.0)),
     ):
         self.num_triangles = num_triangles
         self.cap_m = 3 * num_triangles  # number ops
@@ -89,19 +89,18 @@ class Fendley:
                 if not already_in:
                     self.ops.append(op)
                     self.weights.append(alpha * w)
-                    self.hamiltonian.num_ops += 1
         to_remove = []
         for i, w in enumerate(self.weights):
-            if np.isclose(w, 0):
+            # if np.isclose(w, 0):
+            if w == 0:
                 to_remove.append(i)
         for i in reversed(to_remove):
             del self.weights[i]
             del self.ops[i]
-            self.hamiltonian.num_ops -= 1
             if i < self.cap_m:
                 del self.labels[i]
         len_labels = len(self.labels)
-        for i in range(len_labels, self.hamiltonian.num_ops):
+        for i in range(len_labels, len(self.ops)):
             self.labels.append(f"c_{i - len_labels + 1}")
 
         self.hamiltonian = Hamiltonian(self.weights, self.ops)
