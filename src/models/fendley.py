@@ -80,7 +80,7 @@ class Fendley:
         for alpha, current in zip(current_alpha, currents):
             for w, op in current:
                 already_in = False
-                for i, (self_w, self_op) in enumerate(zip(self.weights, self.ops)):
+                for i, self_op in enumerate(self.ops):
                     if op.is_proportional_to(self_op):
                         phase = op.phase_difference(self_op)
                         self.weights[i] += alpha * w * (1j) ** phase
@@ -91,8 +91,7 @@ class Fendley:
                     self.weights.append(alpha * w)
         to_remove = []
         for i, w in enumerate(self.weights):
-            # if np.isclose(w, 0):
-            if w == 0:
+            if np.isclose(w, 0):
                 to_remove.append(i)
         for i in reversed(to_remove):
             del self.weights[i]

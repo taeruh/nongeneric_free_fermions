@@ -264,7 +264,7 @@ class Generators:
                 current = paulis.list_addition(current, commutator)
             to_delete = []
             for i, (weight, op) in enumerate(current):
-                if abs(weight) == 0.0:
+                if np.isclose(weight, 0.0):
                     to_delete.append(i)
             for i in reversed(to_delete):
                 current.pop(i)

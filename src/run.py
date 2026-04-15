@@ -12,10 +12,16 @@ from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
 import house_of_graphs
 
+# observations:
+# - while the coefficients in the etas and eta_currents obviously depend on alpha, beta,
+#   gamma and currents_alpha, the operators themselves seem to be independent of those
+#   parameters
+# - changing the simplicial mode changes the operators of course
+
 
 def currents_plot():
-    low_num_triangles = 1
-    up_num_triangles = 5
+    low_num_triangles = 2
+    up_num_triangles = 2
 
     # num_triangles 1      2      3      4      5     6     7     8
     tolerances = [1e-12, 1e-12, 1e-12, 1e-10, 1e-8, 1e-6, 1e-4, 1e-2]
@@ -24,13 +30,17 @@ def currents_plot():
     # weight = 10000.0
     weight = 1
     # alpha = ConstantWeight(np.float64(1))
-    alpha = ConstantWeight(np.float64(weight))
-    # beta = ConstantWeight(np.float64(3))
-    beta = ConstantWeight(np.float64(weight))
-    # gamma = ConstantWeight(np.float64(5))
-    gamma = ConstantWeight(np.float64(weight))
-    currents_alpha = ConstantWeight(np.float64(1))
-    simplicial_mode_choice = "example_simplicial_mode1"
+    # beta = ConstantWeight(np.float64(3.333333333332333333333))
+    # gamma = ConstantWeight(np.float64(10.666666666666667777777))
+    alpha = RandomWeight(-np.float64(weight), np.float64(weight))
+    beta = RandomWeight(-np.float64(weight), np.float64(weight))
+    gamma = RandomWeight(-np.float64(weight), np.float64(weight))
+    # alpha = ConstantWeight(np.float64(weight))
+    # beta = ConstantWeight(np.float64(weight))
+    # gamma = ConstantWeight(np.float64(weight))
+    # currents_alpha = ConstantWeight(np.float64(1))
+    currents_alpha = RandomWeight(np.float64(-3), np.float64(1))
+    simplicial_mode_choice = "example_simplicial_mode2"
 
     load_data = False
     # load_data = True
@@ -70,7 +80,18 @@ def currents_plot():
                 orthogonal_tolerance=tolerance,
             )
             print(f"Number of generators: {generators.num_generators}")
+            for eta in generators.etas:
+                # print([f"{weight:.2f},  {op.to_string()}" for weight, op in eta])
+                print(len(eta), "terms in eta")
             generators.init_eta_currents()
+            sum = 0
+            for eta_current in generators.eta_currents:
+                print(
+                    [f"{weight:.2f},  {op.to_string()}" for weight, op in eta_current]
+                )
+                print(len(eta_current), "terms in eta_current")
+                sum += len(eta_current)
+            print(sum, num_triangles * 3)
             print("got currents")
             fendley.extend_with_currents(
                 generators.eta_currents,
