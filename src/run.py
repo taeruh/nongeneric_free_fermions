@@ -1,5 +1,5 @@
 import os
-import pickle
+import json
 import numpy as np
 from sage.all import Graph
 from sage.all import graphs  # pyright: ignore  (this is sage.graphs ...)
@@ -22,32 +22,31 @@ import house_of_graphs
 
 def currents_plot():
     low_num_triangles = 1
-    up_num_triangles = 4
+    up_num_triangles = 6
 
-    # weight = 3.333333333333333333238233
-    # weight = 10000.0
-    weight = 100
-    # alpha = ConstantWeight(np.float64(1))
-    # beta = ConstantWeight(np.float64(3.333333333332333333333))
-    # gamma = ConstantWeight(np.float64(10.666666666666667777777))
-    alpha = RandomWeight(-np.float64(weight), np.float64(weight))
-    beta = RandomWeight(-np.float64(weight), np.float64(weight))
-    gamma = RandomWeight(-np.float64(weight), np.float64(weight))
-    # alpha = ConstantWeight(np.float64(1 * weight))
-    # beta = ConstantWeight(np.float64(2 * weight))
-    # gamma = ConstantWeight(np.float64(3 * weight))
-    # currents_alpha = ConstantWeight(np.float64(1))
-    currents_alpha = RandomWeight(np.float64(-3), np.float64(1))
-    simplicial_mode_choice = "example_simplicial_mode2"
+    weight = 1
+    # seed = 3
+    seed = None
+    alpha = ConstantWeight(np.float64(1))
+    beta = ConstantWeight(np.float64(1))
+    gamma = ConstantWeight(np.float64(1))
+    currents_alpha = ConstantWeight(np.float64(1))
+    # alpha = RandomWeight(-np.float64(1), np.float64(1), seed=seed)
+    # beta = RandomWeight(-np.float64(1), np.float64(1), seed=seed)
+    # gamma = RandomWeight(-np.float64(1), np.float64(1), seed=seed)
+    # currents_alpha = RandomWeight(-np.float64(1), np.float64(1), seed=seed)
+    simplicial_mode_choice = "IIIIX"
+    # simplicial_mode_choice = "ZZZZZ"
+    # simplicial_mode_choice = "IZZZZ"
 
-    load_data = False
-    # load_data = True
+    # load_data = False
+    load_data = True
 
     os.makedirs("output/currents", exist_ok=True)
     file_identifier = (
         f"{alpha}_{beta}_{gamma}_{currents_alpha}_{simplicial_mode_choice}"
     )
-    data_file = f"output/currents/data_{file_identifier}.pkl"
+    data_file = f"output/currents/data_{file_identifier}.json"
     plot_file = f"output/currents/plot_{file_identifier}.pdf"
 
     get_generators = lambda tolerance: Generators(
@@ -64,7 +63,9 @@ def currents_plot():
 
     if load_data:
         with open(data_file, "rb") as f:
-            num_vertices, num_claws = pickle.load(f)
+            data = json.load(f)
+            num_vertices = data["num_vertices"]
+            num_claws = data["num_claws"]
     else:
         num_vertices = []
         num_claws = []  # up to permutation
@@ -72,7 +73,19 @@ def currents_plot():
             expected_rank = 2 * num_triangles + 1
             print(f"Processing num_triangles={num_triangles}...")
             fendley = Fendley(num_triangles, alpha, beta, gamma)
-            simplicial_mode = getattr(fendley, simplicial_mode_choice)
+            new_ham = fendley.hamiltonian.clone()
+            new_ham.add_term(
+                1.0, fendley.example_simplicial_modes[simplicial_mode_choice][0]
+            )
+            new_ham.get_frustration_graph().plot().save_image("output/test_graph.png")
+            simplicial_mode, mode_neighbours = fendley.example_simplicial_modes[
+                simplicial_mode_choice
+            ]
+            if mode_neighbours == 3:
+                # in this case it is one generator less, probably, since the graph,
+                # without the simplicial clique
+                # TODO: proof that? or is it wrong and I have a bug?
+                expected_rank = expected_rank - 1
             generators = get_generators(
                 1e-12,
             )
@@ -85,15 +98,23 @@ def currents_plot():
                 generators = get_generators(
                     1e-24,
                 )
-            if generators.num_generators != expected_rank:
-                with open(
-                    f"output/currents/intermediate_{file_identifier}.pkl", "wb"
-                ) as f:
-                    pickle.dump((num_vertices, num_claws), f)
-                raise ValueError(
-                    f"Unexpected number of generators: {generators.num_generators} ",
-                    f"(expected {expected_rank})",
-                )
+                if generators.num_generators != expected_rank:
+                    with open(
+                        "output/currents/intermediate_"
+                        + f"{num_triangles}_{file_identifier}.json"
+                        "w"
+                    ) as f:
+                        json.dump(
+                            {
+                                "num_vertices": num_vertices,
+                                "num_claws": num_claws,
+                            },
+                            f,
+                        )
+                    raise ValueError(
+                        f"Unexpected number of generators: {generators.num_generators} ",
+                        f"(expected {expected_rank})",
+                    )
             print(f"Number of generators: {generators.num_generators}")
             generators.init_eta_currents()
             print("got currents")
@@ -115,14 +136,30 @@ def currents_plot():
             # correspond to the 6 permutations of the 3 outer vertices
             # PERF: this here is the bottleneck; I could do a lot of stuff in krylov.py in
             # Rust, but it doesn't really matter, as this here is going to take way longer
-            num_claws.append(
-                graph.subgraph_search_count(graphs.ClawGraph(), induced=True) / 6
-            )
+            if num_triangles < 6:
+                num_non_unique_num_claws = graph.subgraph_search_count(
+                    graphs.ClawGraph(), induced=True
+                )
+            else:
+                # great, if the graph is too big, subgraph_search_count returns a negative
+                # number ..., they probably only use a 32 bit integer and then it
+                # overflows ...
+                num_non_unique_num_claws = 0
+                for _ in graph.subgraph_search_iterator(
+                    graphs.ClawGraph(), induced=True, return_graphs=False
+                ):
+                    num_non_unique_num_claws += 1
+            num_claws.append(int(num_non_unique_num_claws / 6))
             print(f"Number of claws in the frustration graph: {num_claws[-1]}")
-        with open(data_file, "wb") as f:
-            pickle.dump((num_vertices, num_claws), f)
+        with open(data_file, "w") as f:
+            json.dump(
+                {
+                    "num_vertices": num_vertices,
+                    "num_claws": num_claws,
+                },
+                f,
+            )
 
-    # TODO: the claw plot probably need a log scale
     fig = plt.figure(figsize=(10, 10))
     gs = fig.add_gridspec(2, 1)
     axes = []
@@ -135,10 +172,11 @@ def currents_plot():
         ax.plot(x, y)
         ax.set_ylabel(label)
         ax.set_xticks(x)
-    ax = axes[1]
-    ax.set_xlabel("Number of triangles")
     ax = axes[0]
     ax.set_title(file_identifier)
+    ax = axes[1]
+    ax.set_xlabel("Number of triangles")
+    ax.set_yscale("log")
     # plt.tight_layout()
     plt.subplots_adjust(top=0.95, bottom=0.06, left=0.08, right=0.95)
     plt.savefig(plot_file)
@@ -147,7 +185,7 @@ def currents_plot():
 def run():
     num_triangles = 2
     fendley = Fendley(num_triangles)
-    simplicial_mode = fendley.example_simplicial_mode1
+    simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
     generators = Generators(simplicial_mode, fendley.hamiltonian)
     generators.init_eta_currents()
 
@@ -231,7 +269,7 @@ def trying_to_reconstruct_fukai_from_bilinears():
     for op in fukai.hamiltonian.operators:
         print(op.to_string())
 
-    simplicial_mode = fendley.example_simplicial_mode1
+    simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
     generators = Generators(simplicial_mode, fendley.hamiltonian)
     fendley_with_simplicial_mode = fendley.hamiltonian
     fendley_with_simplicial_mode.operators.append(simplicial_mode)

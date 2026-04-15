@@ -22,6 +22,18 @@ class Pauli:
     def identity(cls, n: int) -> "Pauli":
         return cls(n, np.zeros(n, dtype=bool), np.zeros(n, dtype=bool), 0)
 
+    @classmethod
+    def from_indices(
+        cls, n: int, z_trues: list[int], x_trues: list[int], phase: int
+    ) -> "Pauli":
+        z = np.zeros(n, dtype=bool)
+        x = np.zeros(n, dtype=bool)
+        for i in z_trues:
+            z[i] = True
+        for i in x_trues:
+            x[i] = True
+        return cls(n, z, x, phase)
+
     def to_string(self, flip: bool = False, with_phase: bool = True) -> str:
         """in the string we order from right to left, i.e., p_n-1, ... p_0 (as in a
         bitvector)"""
@@ -152,6 +164,7 @@ def list_multiplication(
     for i in reversed(to_remove):
         del result[i]
     return result
+
 
 def list_addition(
     ops1: list[tuple[np.complex128, Pauli]], ops2: list[tuple[np.complex128, Pauli]]

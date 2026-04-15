@@ -31,6 +31,27 @@ class Hamiltonian:
         self.pauli_l1_norm = sum(abs(w) for w in self.weights)
         self.pauli_l2_norm = np.sqrt(sum(abs(w) ** 2 for w in self.weights))
 
+    def clone(self) -> "Hamiltonian":
+        clone_weights = self.weights.copy()
+        clone_ops = [op.clone() for op in self.operators]
+        return Hamiltonian(clone_weights, clone_ops)
+
+    def add_term(self, weight: float, op: Pauli):
+        already_in = False
+        for i, self_op in enumerate(self.operators):
+            if op.is_proportional_to(self_op):
+                phase = op.phase_difference(self_op)
+                assert phase in [0, 2]
+                self.weights[i] += weight * (-1) ** (phase // 2)
+                already_in = True
+                break
+        if not already_in:
+            self.operators.append(op)
+            self.weights.append(weight)
+            self.num_ops += 1
+            self.pauli_l1_norm += abs(weight)
+            self.pauli_l2_norm = np.sqrt(self.pauli_l2_norm**2 + abs(weight) ** 2)
+
     def get_frustration_graph(self) -> Graph:
         """Return the frustration graph with the vertex weights."""
         g = Graph()

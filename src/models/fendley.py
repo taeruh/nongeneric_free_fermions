@@ -40,28 +40,24 @@ class Fendley:
 
         self.hamiltonian = Hamiltonian(self.weights, self.ops)
 
-        self.example_simplicial_mode1 = Pauli(
-            self.n,
-            np.zeros(self.n, dtype=bool),
-            np.zeros(self.n, dtype=bool),
-            0,
-        )
-        self.example_simplicial_mode1.x[0] = True
-        self.example_simplicial_mode2 = Pauli(
-            self.n,
-            np.zeros(self.n, dtype=bool),
-            np.zeros(self.n, dtype=bool),
-            0,
-        )
-        self.example_simplicial_mode2.x[1] = True
-        self.example_simplicial_mode3 = Pauli(
-            self.n,
-            np.zeros(self.n, dtype=bool),
-            np.zeros(self.n, dtype=bool),
-            0,
-        )
-        self.example_simplicial_mode3.x[0] = True
-        self.example_simplicial_mode3.x[2] = True
+        # not exhaustive
+        self.example_simplicial_modes = {
+            # { connect to IIXZZ
+            "IIIIX": (Pauli.from_indices(self.n, [], [0], 0), 1),
+            "IIZZZ": (Pauli.from_indices(self.n, [0, 1, 2], [], 0), 1),
+            # } { connect to IIXZZ,
+            #                IXZZI
+            "IIIYZ": (Pauli.from_indices(self.n, [0, 1], [1], 3), 2),
+            "IZZZZ": (Pauli.from_indices(self.n, [0, 1, 2, 3], [], 0), 2),
+            # } { connect to IIXZZ,
+            #                XZZII
+            "IIXXI": (Pauli.from_indices(self.n, [], [1, 2], 0), 2),
+            "IZYZI": (Pauli.from_indices(self.n, [1, 2, 3], [2], 3), 2),
+            # } { connect to IIXZZ, IXZZI, XZZII
+            "ZZZZZ": (Pauli.from_indices(self.n, [0, 1, 2, 3, 4], [], 0), 3),
+            "IIYII": (Pauli.from_indices(self.n, [2], [2], 3), 3),
+            # }
+        }
 
         self.labels = [f"f{i+1}" for i in range(self.cap_m)]
 
