@@ -1,3 +1,4 @@
+import os
 import pickle
 import numpy as np
 from sage.all import Graph
@@ -20,24 +21,21 @@ import house_of_graphs
 
 
 def currents_plot():
-    low_num_triangles = 2
-    up_num_triangles = 2
-
-    # num_triangles 1      2      3      4      5     6     7     8
-    tolerances = [1e-12, 1e-12, 1e-12, 1e-10, 1e-8, 1e-6, 1e-4, 1e-2]
+    low_num_triangles = 1
+    up_num_triangles = 4
 
     # weight = 3.333333333333333333238233
     # weight = 10000.0
-    weight = 1
+    weight = 100
     # alpha = ConstantWeight(np.float64(1))
     # beta = ConstantWeight(np.float64(3.333333333332333333333))
     # gamma = ConstantWeight(np.float64(10.666666666666667777777))
     alpha = RandomWeight(-np.float64(weight), np.float64(weight))
     beta = RandomWeight(-np.float64(weight), np.float64(weight))
     gamma = RandomWeight(-np.float64(weight), np.float64(weight))
-    # alpha = ConstantWeight(np.float64(weight))
-    # beta = ConstantWeight(np.float64(weight))
-    # gamma = ConstantWeight(np.float64(weight))
+    # alpha = ConstantWeight(np.float64(1 * weight))
+    # beta = ConstantWeight(np.float64(2 * weight))
+    # gamma = ConstantWeight(np.float64(3 * weight))
     # currents_alpha = ConstantWeight(np.float64(1))
     currents_alpha = RandomWeight(np.float64(-3), np.float64(1))
     simplicial_mode_choice = "example_simplicial_mode2"
@@ -45,53 +43,59 @@ def currents_plot():
     load_data = False
     # load_data = True
 
+    os.makedirs("output/currents", exist_ok=True)
     file_identifier = (
         f"{alpha}_{beta}_{gamma}_{currents_alpha}_{simplicial_mode_choice}"
     )
-    data_file = f"output/currents_data_{file_identifier}.pkl"
-    plot_file = f"output/currents_plot_{file_identifier}.pdf"
+    data_file = f"output/currents/data_{file_identifier}.pkl"
+    plot_file = f"output/currents/plot_{file_identifier}.pdf"
+
+    get_generators = lambda tolerance: Generators(
+        simplicial_mode,
+        fendley.hamiltonian,
+        eta_normalisation_factor=np.float64(
+            len(fendley.hamiltonian.operators)
+            / fendley.hamiltonian.pauli_l1_norm
+            / (np.sqrt(np.sqrt(2.7)))
+        ),
+        orthogonal_tolerance=tolerance,
+        max_search=expected_rank - 1,
+    )
 
     if load_data:
         with open(data_file, "rb") as f:
             num_vertices, num_claws = pickle.load(f)
     else:
-        # TODO: I should save the results for each num_triangles directly in a file,
-        # because for higher num triangles it might just run out of time (or out of memory
-        # when the tolerance was chosen too low and the gram-schmidt process never ends
-        # and blows up)
-        # TODO: actually use the max_search parameter to stop earlier... if the tolerance
-        # was chosen too low (we actually know that max_search is 2*independence number +
-        # 1, so just use that and assert that we never get more than that (would be a bug)
         num_vertices = []
         num_claws = []  # up to permutation
         for num_triangles in range(low_num_triangles, up_num_triangles + 1):
-            tolerance = tolerances[num_triangles - 1]
-            print(tolerance)
+            expected_rank = 2 * num_triangles + 1
             print(f"Processing num_triangles={num_triangles}...")
             fendley = Fendley(num_triangles, alpha, beta, gamma)
             simplicial_mode = getattr(fendley, simplicial_mode_choice)
-            generators = Generators(
-                simplicial_mode,
-                fendley.hamiltonian,
-                eta_normalisation_factor=np.float64(
-                    len(fendley.hamiltonian.operators)
-                    / fendley.hamiltonian.pauli_l1_norm
-                ),
-                orthogonal_tolerance=tolerance,
+            generators = get_generators(
+                1e-12,
             )
-            print(f"Number of generators: {generators.num_generators}")
-            for eta in generators.etas:
-                # print([f"{weight:.2f},  {op.to_string()}" for weight, op in eta])
-                print(len(eta), "terms in eta")
-            generators.init_eta_currents()
-            sum = 0
-            for eta_current in generators.eta_currents:
-                print(
-                    [f"{weight:.2f},  {op.to_string()}" for weight, op in eta_current]
+            if not generators.gram_schmidt_terminated:
+                norms = generators.gram_schmidt_process.norms
+                average_norm = np.mean(norms)
+                assert norms[-1] < norms[-2] * 1e-3
+                assert norms[-1] < average_norm * 1e-3
+            if generators.num_generators != expected_rank:
+                generators = get_generators(
+                    1e-24,
                 )
-                print(len(eta_current), "terms in eta_current")
-                sum += len(eta_current)
-            print(sum, num_triangles * 3)
+            if generators.num_generators != expected_rank:
+                with open(
+                    f"output/currents/intermediate_{file_identifier}.pkl", "wb"
+                ) as f:
+                    pickle.dump((num_vertices, num_claws), f)
+                raise ValueError(
+                    f"Unexpected number of generators: {generators.num_generators} ",
+                    f"(expected {expected_rank})",
+                )
+            print(f"Number of generators: {generators.num_generators}")
+            generators.init_eta_currents()
             print("got currents")
             fendley.extend_with_currents(
                 generators.eta_currents,

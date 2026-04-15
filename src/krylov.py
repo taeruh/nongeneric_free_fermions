@@ -12,7 +12,7 @@ class Generators:
         simplicial_mode: Pauli,
         hamiltonian: Hamiltonian,
         eta_normalisation_factor: np.float64 = np.float64(1.0),
-        orthogonal_tolerance: float = 1e-9,
+        orthogonal_tolerance: float = 1e-10,
         max_search: int | None = None,
     ):
         """
@@ -22,7 +22,7 @@ class Generators:
 
 
         a potentially good choice for the eta_normalisation_factor is
-        len(hamiltonian.operators) / hamiltonian.pauli_l1_norm
+        len(hamiltonian.operators) / hamiltonian.pauli_l1_norm / (np.sqrt(np.sqrt(2.7)))
         so that we don't run into numerical issues when checking for linear independence
         computing the eigenvalues of the anti_comm_mat_etas (the pauli_l2_norm works not
         so well) (numpy.linalg.(matrix_rank, eigh) go completely batshit when the numbers
@@ -42,15 +42,16 @@ class Generators:
         self.eta_vector_to_pauli_map = [simplicial_mode]
 
         index = 0
-        stop_signal = lambda index: max_search is not None and index >= max_search
+        stop_signal = lambda index: max_search is not None and index == max_search
         # just used for an assertion, but it is interesting to note that the number of
         # zero-weight deletions in each eta is quite high, which is probably the magic due
         # to the fact that we are simplicial and claw-free
         total_num_zero_weight_deletions = 0
-        gram_schmidt_process = GramSchmidtProcess(
+        self.gram_schmidt_process = GramSchmidtProcess(
             self.eta_vectors[0], tolerance=orthogonal_tolerance
         )
-        while not stop_signal(index):
+        self.gram_schmidt_terminated = False
+        while True:
             last_eta = self.etas[index]
             eta = []
             vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=complex)
@@ -80,7 +81,7 @@ class Generators:
                             vector = np.append(vector, comm_weight)
                             # for i, v in enumerate(self.eta_vectors):
                             #     self.eta_vectors[i] = np.append(v, 0.0)
-                            gram_schmidt_process.append_zeros()
+                            self.gram_schmidt_process.append_zeros()
 
                         already_in_etas = False
                         for i, (eta_weight, eta_op) in enumerate(eta):
@@ -110,11 +111,17 @@ class Generators:
                                 "then it cannot be already in etas"
                             )
 
-            current_rank = gram_schmidt_process.basis.shape[1]
+            current_rank = self.gram_schmidt_process.basis.shape[1]
             assert current_rank == index + 1
-            if not gram_schmidt_process.add_vector(vector):
+            if not self.gram_schmidt_process.add_vector(vector):
                 # TODO: see the todo below in GramSchmidtProcess.add_vector,
                 print(f"Gram-Schmidt process terminated at rank {current_rank}")
+                self.gram_schmidt_terminated = True
+                break
+            # I don't stop the while loop earlier on the stop_signal because I want to
+            # know what the norm of the orthogonal component is at the max_search index,
+            elif stop_signal(index):
+                print(f"Stopped after reaching max_search index of {max_search}")
                 break
             else:
                 to_delete = []
@@ -277,11 +284,12 @@ class Generators:
 
 
 class GramSchmidtProcess:
-    def __init__(self, first_vector: np.ndarray, tolerance: float = 1e-9):
+    def __init__(self, first_vector: np.ndarray, tolerance: float = 1e-10):
         norm = linalg.norm(first_vector)
         assert norm > 0.0
         self.basis = np.array([first_vector / norm], dtype=complex).T
         self.tolerance = tolerance
+        self.norms = [norm]
 
     def append_zeros(self):
         self.basis = np.vstack(
@@ -289,13 +297,13 @@ class GramSchmidtProcess:
         )
 
     def add_vector(self, vector: np.ndarray) -> bool:
-        # print(vector)
         assert len(vector) == self.basis.shape[0]
         projection = self.basis @ (self.basis.conj().T @ vector)
         orthogonal_component = vector - projection
         norm = linalg.norm(orthogonal_component)
         # TODO: print this here into some file which one should always check for sensible
         # values
+        self.norms.append(norm)
         print(f"Gram-Schmidt: norm of orthogonal component is {norm}")
         if norm > self.tolerance:
             new_basis_vector = orthogonal_component / norm
