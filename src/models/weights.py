@@ -14,8 +14,8 @@ class Weight(ABC):
 
 
 class ConstantWeight(Weight):
-    def __init__(self, value: np.float64):
-        self.value = value
+    def __init__(self, value: np.float64 | float):
+        self.value = np.float64(value)
 
     def __call__(self) -> np.float64:
         return self.value

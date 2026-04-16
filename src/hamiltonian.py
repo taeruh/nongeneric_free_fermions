@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 
 
 class Hamiltonian:
-    def __init__(self, weights: list[float], ops: list[Pauli]):
+    def __init__(self, weights: list[np.float64], ops: list[Pauli]):
         assert len(weights) == len(ops)
         self.num_ops = len(ops)
         if self.num_ops == 0:
@@ -36,7 +36,7 @@ class Hamiltonian:
         clone_ops = [op.clone() for op in self.operators]
         return Hamiltonian(clone_weights, clone_ops)
 
-    def add_term(self, weight: float, op: Pauli):
+    def add_term(self, weight: np.float64, op: Pauli):
         already_in = False
         for i, self_op in enumerate(self.operators):
             if op.is_proportional_to(self_op):

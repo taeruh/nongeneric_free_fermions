@@ -67,7 +67,7 @@ class Fendley:
 
     def extend_with_currents(
         self,
-        currents: list[list[tuple[np.complex128, Pauli]]],
+        currents: list[list[tuple[np.float64, Pauli]]],
         current_alpha: list[np.float64],
     ):
         assert len(currents) == len(current_alpha)
@@ -79,7 +79,8 @@ class Fendley:
                 for i, self_op in enumerate(self.ops):
                     if op.is_proportional_to(self_op):
                         phase = op.phase_difference(self_op)
-                        self.weights[i] += alpha * w * (1j) ** phase
+                        assert phase in [0, 2]
+                        self.weights[i] += alpha * w * (-1) ** (phase // 2)
                         already_in = True
                         break
                 if not already_in:

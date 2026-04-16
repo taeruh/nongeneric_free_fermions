@@ -8,17 +8,17 @@ def independence_polynomial(
 ) -> NDArray[np.float64]:
     # recursive definition of the independence polynomial:
     # I(G, X) = I(G\{v}, X) + I(G\N[v], X) * X
-    if graph.num_vertices == 0:
+    if graph.order() == 0:
         ret = np.zeros(max_alpha_plus_1, dtype=np.float64)
         ret[0] = np.float64(1.0)
         return ret
     else:
         v = graph.vertices()[0]
-        g_v = graph.clone()
-        g_v.remove_vertex(v)
-        g_nv = g_v.clone()
+        g_v = graph.copy()
+        g_v.delete_vertex(v)
+        g_nv = g_v.copy()
         for neighbor in graph.neighbors(v):
-            g_nv.remove_vertex(neighbor)
+            g_nv.delete_vertex(neighbor)
         poly_v = independence_polynomial(g_v, weights, max_alpha_plus_1)
         poly_nv = independence_polynomial(g_nv, weights, max_alpha_plus_1)
         ret = np.zeros(max_alpha_plus_1, dtype=np.float64)
@@ -27,3 +27,32 @@ def independence_polynomial(
         for i in range(1, max_alpha_plus_1):
             ret[i] = poly_v[i] + poly_nv[i - 1]
         return ret
+
+
+def truncate_and_reverse_polynomial(poly: NDArray[np.float64]) -> NDArray[np.float64]:
+    ret = poly.copy()
+    while True:
+        if ret[-1] == 0:
+            ret = ret[:-1]
+        else:
+            break
+    ret = ret[::-1]
+    return ret
+
+
+def multiply_polynomials(
+    poly1: NDArray[np.float64], poly2: NDArray[np.float64]
+) -> NDArray[np.float64]:
+    deg1 = len(poly1) - 1
+    deg2 = len(poly2) - 1
+    result = np.zeros(deg1 + deg2 + 1, dtype=np.float64)
+    for i in range(deg1 + 1):
+        for j in range(deg2 + 1):
+            result[i + j] += poly1[i] * poly2[j]
+    return result
+
+
+def roots(poly: NDArray[np.float64]) -> NDArray[np.float64]:
+    roots = np.roots(poly)
+    print(roots)
+    return roots

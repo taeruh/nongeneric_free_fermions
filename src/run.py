@@ -12,15 +12,41 @@ from models.fukai import Fukai
 from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
 import house_of_graphs
+import phase_diagram
 
 # observations:
-# - while the coefficients in the etas and eta_currents obviously depend on alpha, beta,
-#   gamma and currents_alpha, the operators themselves seem to be independent of those
-#   parameters
-# - changing the simplicial mode changes the operators of course
+# - while the coefficients in the etas and eta_currents obviously depend on alpha,
+#   beta, gamma and currents_alpha, the operators themselves seem to be independent
+#   of those parameters
+# - changing the simplicial mode changes the operators of course, however, the graph
+#   and the coefficients seem to stay the same between different modes from the same
+#   connectivity to the graph (i.e., connect to one vertex, connect to two vertices,
+#   connect to three vertices)
+
+
+def get_phase_diagram():
+    fendley = Fendley(2, ConstantWeight(1.0), ConstantWeight(1.0), ConstantWeight(1.0))
+    simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
+    # simplicial_mode = fendley.example_simplicial_modes["IIZZZ"][0]
+    # generators = Generators(simplicial_mode, fendley.hamiltonian, max_search=10)
+    generators = Generators(simplicial_mode, fendley.hamiltonian)
+    generators.init_eta_currents()
+    fendley.extend_with_currents(
+        generators.eta_currents, [np.float64(1.0) for _ in generators.eta_currents]
+    )
+    graph = fendley.hamiltonian.get_frustration_graph()
+    poly = phase_diagram.independence_polynomial(
+        graph, fendley.hamiltonian.weights, len(fendley.hamiltonian.weights) + 1
+    )
+    poly = phase_diagram.truncate_and_reverse_polynomial(poly)
+    # poly_minus = -1 * poly
+    # p = phase_diagram.multiply_polynomials(poly, poly_minus)
+    p = poly
+    roots = phase_diagram.roots(p)
 
 
 def currents_plot():
+
     low_num_triangles = 1
     up_num_triangles = 6
 
@@ -73,11 +99,6 @@ def currents_plot():
             expected_rank = 2 * num_triangles + 1
             print(f"Processing num_triangles={num_triangles}...")
             fendley = Fendley(num_triangles, alpha, beta, gamma)
-            new_ham = fendley.hamiltonian.clone()
-            new_ham.add_term(
-                1.0, fendley.example_simplicial_modes[simplicial_mode_choice][0]
-            )
-            new_ham.get_frustration_graph().plot().save_image("output/test_graph.png")
             simplicial_mode, mode_neighbours = fendley.example_simplicial_modes[
                 simplicial_mode_choice
             ]
@@ -273,7 +294,7 @@ def trying_to_reconstruct_fukai_from_bilinears():
     generators = Generators(simplicial_mode, fendley.hamiltonian)
     fendley_with_simplicial_mode = fendley.hamiltonian
     fendley_with_simplicial_mode.operators.append(simplicial_mode)
-    fendley_with_simplicial_mode.weights.append(1.0)
+    fendley_with_simplicial_mode.weights.append(np.float64(1.0))
     fendley_with_simplicial_mode.num_ops += 1
     fendley_graph = fendley_with_simplicial_mode.get_frustration_graph()
     labels = fendley.labels + ["simplicial_mode"]

@@ -249,7 +249,7 @@ class Generators:
         return coeffs
 
     def init_eta_currents(self):
-        self.eta_currents: list[list[tuple[np.complex128, Pauli]]] = []
+        self.eta_currents: list[list[tuple[np.float64, Pauli]]] = []
         for l in range(self.num_generators):
             current = []
             for k in range(l):
@@ -280,7 +280,11 @@ class Generators:
                 op.phase = (op.phase + 1) % 4
                 assert op.get_hermitian_phase() in [0, 2]
                 current[i] = (weight, op)
-            self.eta_currents.append(current)
+            real_current = []
+            for i in range(len(current)):
+                assert current[i][0].imag == 0.0
+                real_current.append((current[i][0].real, current[i][1]))
+            self.eta_currents.append(real_current)
 
 
 class GramSchmidtProcess:
