@@ -9,6 +9,8 @@ def main():
     run.get_phase_diagram()
     # run.currents_plot()
     # run.trying_to_reconstruct_fukai_from_bilinears()
+    # import krylov
+    # krylov.test_projections()
 
 
 if __name__ == "__main__":

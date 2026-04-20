@@ -1,5 +1,6 @@
 import numpy as np
 from numpy.typing import NDArray
+from typing import Sequence
 
 
 class Pauli:
@@ -13,7 +14,7 @@ class Pauli:
         self.phase = phase
 
     def __repr__(self):
-        return f"({self.z.astype(np.int_)},{self.x.astype(np.int_)}; {self.n}, {self.phase})"
+        return f"({self.z.astype(np.int_)},{self.x.astype(np.int_)}, {self.phase}; {self.n})"
 
     def clone(self):
         return Pauli(self.n, self.z.copy(), self.x.copy(), self.phase)
@@ -124,7 +125,9 @@ class Pauli:
         return Pauli(self.n, new_z, new_x, new_phase)
 
 
-def list_to_matrix(ops: list[tuple[np.complex128, Pauli]]) -> NDArray[np.complex128]:
+def list_to_matrix(
+    ops: Sequence[tuple[np.complex128 | np.float64, Pauli]],
+) -> NDArray[np.complex128]:
     """given a list of (weight, pauli) pairs, return the matrix representation of the
     sum of these operators"""
     if len(ops) == 0:
@@ -137,7 +140,8 @@ def list_to_matrix(ops: list[tuple[np.complex128, Pauli]]) -> NDArray[np.complex
 
 
 def list_multiplication(
-    ops1: list[tuple[np.complex128, Pauli]], ops2: list[tuple[np.complex128, Pauli]]
+    ops1: Sequence[tuple[np.complex128 | np.float64, Pauli]],
+    ops2: Sequence[tuple[np.complex128 | np.float64, Pauli]],
 ) -> list[tuple[np.complex128, Pauli]]:
     """given two lists of (weight, pauli) pairs, return the list of (weight, pauli)
     pairs corresponding to the product of the sums of these operators"""
@@ -189,11 +193,15 @@ def list_addition(
 
 
 def list_and_single_hilbert_schmidt_inner_product(
-    ops: list[tuple[np.complex128, Pauli]], pauli: Pauli, unique_list: bool = False
+    ops: Sequence[tuple[np.complex128 | np.float64, Pauli]],
+    pauli: Pauli,
+    unique_list: bool = False,
 ) -> np.complex128:
     """given a list of (weight, pauli) pairs, return the hilbert schmidt inner product of
     the sum of these operators with another pauli; the paulis in the list should be
-    hermition"""
+    hermition, (we define the inner product so that the conjugation is on the first
+    argument into which we pass `ops` (and then don't conjugate it because it is
+    hermitian))"""
     for _, op in ops:
         assert op.get_hermitian_phase() in [0, 2]
     total = np.complex128(0.0 + 0.0j)

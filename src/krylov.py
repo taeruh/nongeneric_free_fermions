@@ -40,6 +40,7 @@ class Generators:
         ]
         self.eta_vectors = [np.array([1.0])]
         self.eta_vector_to_pauli_map = [simplicial_mode]
+        self.eta_normalisation_factors = [eta_normalisation_factor]
 
         index = 0
         stop_signal = lambda index: max_search is not None and index == max_search
@@ -79,9 +80,11 @@ class Generators:
                         if not already_in_vectors:
                             self.eta_vector_to_pauli_map.append(comm_op)
                             vector = np.append(vector, comm_weight)
-                            # for i, v in enumerate(self.eta_vectors):
-                            #     self.eta_vectors[i] = np.append(v, 0.0)
                             self.gram_schmidt_process.append_zeros()
+                            # while we don't need to append zeros for what we do in this
+                            # method, it will be more convenient when we define the gammas
+                            for i, v in enumerate(self.eta_vectors):
+                                self.eta_vectors[i] = np.append(v, 0.0)
 
                         already_in_etas = False
                         for i, (eta_weight, eta_op) in enumerate(eta):
@@ -134,6 +137,10 @@ class Generators:
                 for i in reversed(to_delete):
                     eta.pop(i)
                 self.etas.append(eta)
+                self.eta_vectors.append(vector)
+                self.eta_normalisation_factors.append(
+                    self.eta_normalisation_factors[-1] * eta_normalisation_factor
+                )
                 index += 1
 
         total_num_op_in_etas = sum(len(eta) for eta in self.etas)
@@ -164,25 +171,31 @@ class Generators:
                 anti_comm_mat_etas[i, j] = total_trace
                 anti_comm_mat_etas[j, i] = total_trace
 
-        print(anti_comm_mat_etas)
+        anti_comm_mat_etas /= 2  # per definition
+
         eigvals, eigvecs = linalg.eigh(anti_comm_mat_etas)
-        print(eigvals)
         for val in eigvals:
             assert not np.isclose(val, 0.0)
             assert val > 0.0
 
-        self.gammas = []
+        self.gamma_d = eigvals
+        self.gamma_u = eigvecs.T
+
+        self.gammas: list[list[tuple[np.float64, Pauli]]] = []
         for i in range(self.num_generators):
-            # a little bit different to eq. 129 in chapman_unified as we already have the
-            # "i" factor in the etas and we define the anti_comm_mat_etas with a different
-            # factor (only divided by dim(hilbert space) instead of 2 * dim(hilbert space)
+            # a little bit different to eq. (80) in chapman_unified (why is there this
+            # i^(j mod 2)? I calculated the anticommutator and the conjugation by hand and
+            # I don't think there should be this i) as we define the anti_comm_mat_etas
+            # with a different factor (only divided by dim(hilbert space) instead of 2 *
+            # dim(hilbert space)
             # TODO:  double check on that these two statements; I'm just guessing here and
             # set the factor so that the gammas are properly normalised
-            factor = np.complex128((2 / eigvals[i]) ** (0.5))
+            factor = np.complex128((1 / eigvals[i]) ** (0.5))
             # factor = (1j) ** (i % 2) / ( eigvals[i] ** (0.5))
             gamma_vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=complex)
             for j in range(self.num_generators):
-                gamma_vector += factor * eigvecs[j, i] * self.eta_vectors[j]
+                gamma_vector += self.gamma_u[i, j] * self.eta_vectors[j]
+            gamma_vector = gamma_vector * factor
             gamma = []
             for weight, op in zip(gamma_vector, self.eta_vector_to_pauli_map):
                 if abs(weight) > 1e-10:
@@ -224,22 +237,29 @@ class Generators:
         # }}}
 
     def init_gamma_bilinears(self):
+        """multiplied an "i" in to make them hermitian"""
         # PERF: this loop takes quite some time
-        self.gamma_bilinears: dict[
-            tuple[int, int], list[tuple[np.complex128, Pauli]]
-        ] = dict()
+        self.gamma_bilinears: dict[tuple[int, int], list[tuple[np.float64, Pauli]]] = (
+            dict()
+        )
         for i in range(self.num_generators):
-            for j in range(i, self.num_generators):
-                product = paulis.list_multiplication(self.gammas[i], self.gammas[j])
-                for w, op in product:
+            for j in range(i + 1, self.num_generators):
+                product = paulis.list_multiplication(
+                    self.gammas[i], self.gammas[j]
+                )  # pyright: ignore
+                for k, (w, op) in enumerate(product):
                     assert w.imag == 0.0
-                    if i != j:
-                        # need to make them hermitian
-                        op.phase = (op.phase + 1) % 4
+                    # need to make them hermitian
+                    op.phase = (op.phase + 1) % 4
                     assert op.get_hermitian_phase() in [0, 2]
+                    product[k] = (w.real, op)
+                product: list[tuple[np.float64, Pauli]] = product
                 self.gamma_bilinears[(i, j)] = product
+        self.gamma_bilinears[(0, 0)] = [(np.float64(1.0), Pauli.identity(self.n))]
 
-    def bilinear_gamma_projection(self, pauli: Pauli) -> list[tuple[int, int, float]]:
+    def bilinear_gamma_projection(
+        self, pauli: Pauli
+    ) -> list[tuple[int, int, np.complex128]]:
         """given a pauli, return the coefficients of its projection onto the gammas"""
         coeffs = []
         for (i, j), ops in self.gamma_bilinears.items():
@@ -249,6 +269,7 @@ class Generators:
         return coeffs
 
     def init_eta_currents(self):
+        """multiplied an "i" in to make them hermitian"""
         self.eta_currents: list[list[tuple[np.float64, Pauli]]] = []
         for l in range(self.num_generators):
             current = []
@@ -286,6 +307,37 @@ class Generators:
                 real_current.append((current[i][0].real, current[i][1]))
             self.eta_currents.append(real_current)
 
+    def eta_currents_bilinear_gamma_projection(
+        self,
+    ) -> list[list[tuple[int, int, float]]]:
+        ret = []
+        for l in range(self.num_generators):
+            current_coeffs = []
+            for a in range(self.num_generators):
+                for b in range(a + 1, self.num_generators):
+                    coeff = 0
+                    for k in range(l):
+                        l_k = l - k
+                        if k == l_k:
+                            continue
+                        coeff += (-1) ** k * (
+                            self.gamma_u[a, k] * self.gamma_u[b, l_k]
+                            - self.gamma_u[b, k] * self.gamma_u[a, l_k]
+                        )
+                    if coeff != 0.0:
+                        assert coeff.imag == 0.0
+                        current_coeffs.append(
+                            (
+                                a,
+                                b,
+                                2
+                                * np.sqrt(self.gamma_d[a] * self.gamma_d[b])
+                                * coeff.real,
+                            )
+                        )
+            ret.append(current_coeffs)
+        return ret
+
 
 class GramSchmidtProcess:
     def __init__(self, first_vector: np.ndarray, tolerance: float = 1e-10):
@@ -315,3 +367,107 @@ class GramSchmidtProcess:
             return True
         else:
             return False
+
+
+def test_projections():
+    from models.fendley import Fendley
+    from models.weights import ConstantWeight
+    import phase_diagram
+
+    fendley = Fendley(1, ConstantWeight(1.0), ConstantWeight(1.0), ConstantWeight(1.0))
+    simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
+    generators = Generators(simplicial_mode, fendley.hamiltonian)
+
+    dim = 2**fendley.n
+
+    generators.init_gammas()
+    generators.init_gamma_bilinears()
+    generators.init_eta_currents()
+    gamma_bilinears = generators.gamma_bilinears
+    eta_currents = generators.eta_currents
+
+    currents_coeffs = generators.eta_currents_bilinear_gamma_projection()
+
+    fendley_coeffs = dict()
+    for w, op in zip(fendley.hamiltonian.weights, fendley.hamiltonian.operators):
+        coeff = generators.bilinear_gamma_projection(op)
+        for j, k, c in coeff:
+            assert c.imag == 0
+            fendley_coeffs[(j, k)] = fendley_coeffs.get((j, k), 0) + c.real * w
+
+
+    mat = fendley.hamiltonian.to_matrix()
+    mat_reconstructed = np.zeros_like(mat)
+    for (i, j), c in fendley_coeffs.items():
+        for w, op in gamma_bilinears[(i, j)]:
+            mat_reconstructed += c * w * op.to_matrix()
+    assert np.allclose(mat, mat_reconstructed)
+
+    mat = np.zeros((dim, dim), dtype=complex)
+    for current in eta_currents:
+        for w, op in current:
+            mat += w * op.to_matrix()
+    mat_reconstructed = np.zeros((dim, dim), dtype=complex)
+    for coeffs in currents_coeffs:
+        for i, j, w in coeffs:
+            for w2, op in gamma_bilinears[(i, j)]:
+                mat_reconstructed += w * w2 * op.to_matrix()
+    assert np.allclose(mat, mat_reconstructed)
+
+    fendley.extend_with_currents(
+        generators.eta_currents, [np.float64(1.0) for _ in generators.eta_currents]
+    )
+
+    total_coeffs = dict()
+    for w, op in zip(fendley.hamiltonian.weights, fendley.hamiltonian.operators):
+        coeff = generators.bilinear_gamma_projection(op)
+        for j, k, c in coeff:
+            assert c.imag == 0
+            total_coeffs[(j, k)] = total_coeffs.get((j, k), 0) + c.real * w
+    mat = fendley.hamiltonian.to_matrix()
+    mat_reconstructed = np.zeros_like(mat)
+    for (i, j), c in total_coeffs.items():
+        for w, op in generators.gamma_bilinears[(i, j)]:
+            mat_reconstructed += c * w * op.to_matrix()
+    assert np.allclose(mat, mat_reconstructed)
+
+    reconstruct_total_coeffs = fendley_coeffs.copy()
+    for coeffs in currents_coeffs:
+        for i, j, c in coeffs:
+            reconstruct_total_coeffs[(i, j)] = (
+                reconstruct_total_coeffs.get((i, j), 0) + c
+            )
+
+    for key in set(total_coeffs.keys()).union(set(reconstruct_total_coeffs.keys())):
+        assert np.isclose(
+            total_coeffs.get(key), reconstruct_total_coeffs.get(key)  # pyright: ignore
+        )
+
+    h = np.zeros((generators.num_generators, generators.num_generators))
+    for (i, j), coeff in reconstruct_total_coeffs.items():
+        h[i, j] = coeff / 2
+        h[j, i] = -coeff / 2
+    # print(h)
+
+
+    lm, _ = phase_diagram.skew_diagonalise(h)
+    phase_diagram.smoothen_lamda(lm)
+    lm_pairs = phase_diagram.get_lamda_pairs(lm)
+    all_possible_vals = phase_diagram.get_lamda_eigenvalues(lm_pairs)
+
+    vals, _ = fendley.hamiltonian.diagonalise()
+    unique_vals = set()
+    for v in vals:
+        already_in = False
+        for u in unique_vals:
+            if np.isclose(v, u):
+                already_in = True
+                break
+        if not already_in:
+            unique_vals.add(v)
+
+    unique_vals = sorted(unique_vals)
+    all_possible_vals = sorted(all_possible_vals)
+    assert len(unique_vals) == len(all_possible_vals)
+    for i in range(len(unique_vals)):
+        assert np.isclose(unique_vals[i], all_possible_vals[i])

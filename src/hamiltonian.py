@@ -69,6 +69,16 @@ class Hamiltonian:
             mat += w * op.to_matrix()
         return mat
 
+    def diagonalise(self) -> Tuple[NDArray[np.complex128], NDArray[np.complex128]]:
+        """note the the eigenvalues are in ascending order"""
+        mat = self.to_matrix()
+        eigvals, eigvecs = np.linalg.eigh(mat)
+        return eigvals, eigvecs
+
+    def minimum_energy(self) -> float:
+        eigvals, _ = self.diagonalise()
+        return eigvals[0]
+
 
 def has_proportional_terms(
     ops: list[Pauli],

@@ -1,58 +1,74 @@
 import numpy as np
+from scipy import linalg
 from numpy.typing import NDArray
 from sage.all import Graph
 
 
-def independence_polynomial(
-    graph: Graph, weights: list[np.float64], max_alpha_plus_1: int
-) -> NDArray[np.float64]:
-    # recursive definition of the independence polynomial:
-    # I(G, X) = I(G\{v}, X) + I(G\N[v], X) * X
-    if graph.order() == 0:
-        ret = np.zeros(max_alpha_plus_1, dtype=np.float64)
-        ret[0] = np.float64(1.0)
-        return ret
-    else:
-        v = graph.vertices()[0]
-        g_v = graph.copy()
-        g_v.delete_vertex(v)
-        g_nv = g_v.copy()
-        for neighbor in graph.neighbors(v):
-            g_nv.delete_vertex(neighbor)
-        poly_v = independence_polynomial(g_v, weights, max_alpha_plus_1)
-        poly_nv = independence_polynomial(g_nv, weights, max_alpha_plus_1)
-        ret = np.zeros(max_alpha_plus_1, dtype=np.float64)
-        poly_nv = poly_nv * weights[v] ** 2
-        ret[0] = poly_v[0]
-        for i in range(1, max_alpha_plus_1):
-            ret[i] = poly_v[i] + poly_nv[i - 1]
-        return ret
+def skew_diagonalise(
+    h: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """return (Lambda, K) such that h = K lambda K^dagger"""
+    lm, km = linalg.schur(h, output="real")  # pyright: ignore
+    assert np.allclose(h, km @ lm @ km.T)
+    return lm, km  # pyright: ignore
 
 
-def truncate_and_reverse_polynomial(poly: NDArray[np.float64]) -> NDArray[np.float64]:
-    ret = poly.copy()
-    while True:
-        if ret[-1] == 0:
-            ret = ret[:-1]
+def smoothen_lamda(lm: NDArray[np.float64], eps: float = 1e-13) -> None:
+    dims = lm.shape
+    for i in range(dims[0]):
+        for j in range(dims[1]):
+            if np.abs(lm[i, j]) < eps:
+                lm[i, j] = 0.0
+
+
+def get_lamda_pairs(lm: NDArray[np.float64]) -> list[tuple[tuple[int, int], float]]:
+    dims = lm.shape
+    lm_pairs = []
+    i = 0
+    while i < dims[0]:
+        for j in range(dims[1]):
+            x = lm[i, j]
+            if x != 0.0:
+                assert np.isclose(x, -lm[i + 1, j - 1])
+                lm_pairs.append(((i, i + 1), x))
+                i += 1
+                break
+        i += 1
+    return lm_pairs
+
+
+def get_lamda_minimum_eigenvalue(
+    lm_pairs: list[tuple[tuple[int, int], float]],
+) -> float:
+    val = 0.0
+    for _, x in lm_pairs:
+        val -= abs(x)
+    return 2 * val
+
+
+# TODO: implement it with the efficient sorting (cf. linegraph guiding notes)
+def get_lamda_eigenvalues(lm_pairs: list[tuple[tuple[int, int], float]]) -> list[float]:
+    all_possible_vals = set()
+    for i in range(0, 2 ** len(lm_pairs)):
+        val = 0.0
+        for j, (_, x) in enumerate(lm_pairs):
+            if (i >> j) & 1:
+                val += x
+            else:
+                val -= x
+        all_possible_vals.add(2 * val)
+    return sorted(all_possible_vals)
+
+
+def get_gap(lm_eigenvalues: list[float]) -> float:
+    """assume lm_eigenvalues is sorted in ascending order, return the gap between the minimum and the next one"""
+    min_value = lm_eigenvalues[0]
+    # loop to catch potential degeneracies
+    gap = 0
+    for val in lm_eigenvalues[1:]:
+        if np.isclose(val, min_value):
+            continue
         else:
+            gap = val - min_value
             break
-    ret = ret[::-1]
-    return ret
-
-
-def multiply_polynomials(
-    poly1: NDArray[np.float64], poly2: NDArray[np.float64]
-) -> NDArray[np.float64]:
-    deg1 = len(poly1) - 1
-    deg2 = len(poly2) - 1
-    result = np.zeros(deg1 + deg2 + 1, dtype=np.float64)
-    for i in range(deg1 + 1):
-        for j in range(deg2 + 1):
-            result[i + j] += poly1[i] * poly2[j]
-    return result
-
-
-def roots(poly: NDArray[np.float64]) -> NDArray[np.float64]:
-    roots = np.roots(poly)
-    print(roots)
-    return roots
+    return gap
