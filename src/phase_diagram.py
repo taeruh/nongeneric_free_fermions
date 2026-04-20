@@ -72,3 +72,31 @@ def get_gap(lm_eigenvalues: list[float]) -> float:
             gap = val - min_value
             break
     return gap
+
+
+def triangle_grid(n, factor=3):
+    points = []
+    for i in range(n + 1):
+        for j in range(n + 1 - i):
+            k = n - i - j
+            alpha = i / n
+            beta = j / n
+            gamma = k / n
+            points.append([alpha, beta, gamma])
+    return np.array(points) * factor
+
+def triangle_grid_inner(n, factor=3):
+    points = triangle_grid(n, factor)
+    to_remove = []
+    for i, point in enumerate(points):
+        if point[0] == 0 or point[1] == 0 or point[2] == 0:
+            to_remove.append(i)
+    return np.delete(points, to_remove, axis=0)
+
+
+def points_to_plot_coordinates(points):
+    a = np.array([0.0, 0.0])
+    b = np.array([1.0, 0.0])
+    c = np.array([0.5, np.sqrt(3) / 2])
+    xy = points[:, 0, None] * a + points[:, 1, None] * b + points[:, 2, None] * c
+    return xy[:, 0], xy[:, 1]

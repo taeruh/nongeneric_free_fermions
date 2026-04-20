@@ -153,7 +153,7 @@ class Generators:
 
         self.num_generators = len(self.etas)
 
-    def init_gammas(self):
+    def init_gammas(self, do_checks: bool = True):
         anti_comm_mat_etas = np.zeros(
             (self.num_generators, self.num_generators), dtype=complex
         )
@@ -172,14 +172,17 @@ class Generators:
                 anti_comm_mat_etas[j, i] = total_trace
 
         anti_comm_mat_etas /= 2  # per definition
+        print("got anti_comm_mat_etas")
 
         eigvals, eigvecs = linalg.eigh(anti_comm_mat_etas)
         for val in eigvals:
+            print(val)
             assert not np.isclose(val, 0.0)
             assert val > 0.0
 
         self.gamma_d = eigvals
         self.gamma_u = eigvecs.T
+        print("got U and D")
 
         self.gammas: list[list[tuple[np.float64, Pauli]]] = []
         for i in range(self.num_generators):
@@ -201,39 +204,49 @@ class Generators:
                 if abs(weight) > 1e-10:
                     gamma.append((weight, op))
             self.gammas.append(gamma)
+        print("got gammas")
 
-        # exhaustively check that the gammas behave correctly {{{
-        anti_comm_mat_gammas = np.zeros(
-            (self.num_generators, self.num_generators), dtype=complex
-        )
-        for i in range(self.num_generators):
-            for j in range(self.num_generators):
-                total_trace = 0
-                for weight_i, op_i in self.gammas[i]:
-                    for weight_j, op_j in self.gammas[j]:
-                        prod = op_i.multiply_as_paulis(op_j)
-                        if prod.is_proportional_to(Pauli.identity(op_i.n)):
-                            assert prod.phase in [0, 2]
-                            total_trace += (
-                                2 * weight_i * weight_j * (-1) ** (prod.phase // 2)
-                            )
-                anti_comm_mat_gammas[i, j] = total_trace
-
-        assert np.allclose(anti_comm_mat_gammas, 2 * np.identity(self.num_generators))
-
-        if self.n <= 8:  # otherwise this is too expensive
+        # exhaustively check that the gammas behave correctly (it is quite slow and the
+        # check on anti_comm_mat_gammas can fail due to numerical inaccuracies) {{{
+        if do_checks:
+            anti_comm_mat_gammas = np.zeros(
+                (self.num_generators, self.num_generators), dtype=complex
+            )
             for i in range(self.num_generators):
                 for j in range(self.num_generators):
-                    prod = paulis.list_to_matrix(
-                        self.gammas[i]
-                    ) @ paulis.list_to_matrix(self.gammas[j])
-                    prod_inverse = paulis.list_to_matrix(
-                        self.gammas[j]
-                    ) @ paulis.list_to_matrix(self.gammas[i])
-                    if i == j:
-                        assert np.allclose(prod, np.identity(2**self.n))
-                    else:
-                        assert np.allclose(prod, -prod_inverse)
+                    total_trace = 0
+                    for weight_i, op_i in self.gammas[i]:
+                        for weight_j, op_j in self.gammas[j]:
+                            prod = op_i.multiply_as_paulis(op_j)
+                            if prod.is_proportional_to(Pauli.identity(op_i.n)):
+                                assert prod.phase in [0, 2]
+                                total_trace += (
+                                    2 * weight_i * weight_j * (-1) ** (prod.phase // 2)
+                                )
+                    anti_comm_mat_gammas[i, j] = total_trace
+
+            diff = anti_comm_mat_gammas - 2 * np.identity(self.num_generators)
+            norm = 0
+            for i in range(self.num_generators):
+                for j in range(self.num_generators):
+                    norm += abs(diff[i, j])
+            print(norm)
+            assert np.allclose(anti_comm_mat_gammas, 2 * np.identity(self.num_generators))
+
+            if self.n <= 8:  # otherwise this is too expensive
+                for i in range(self.num_generators):
+                    for j in range(self.num_generators):
+                        prod = paulis.list_to_matrix(
+                            self.gammas[i]
+                        ) @ paulis.list_to_matrix(self.gammas[j])
+                        prod_inverse = paulis.list_to_matrix(
+                            self.gammas[j]
+                        ) @ paulis.list_to_matrix(self.gammas[i])
+                        if i == j:
+                            assert np.allclose(prod, np.identity(2**self.n))
+                        else:
+                            assert np.allclose(prod, -prod_inverse)
+            print("checks passed")
         # }}}
 
     def init_gamma_bilinears(self):

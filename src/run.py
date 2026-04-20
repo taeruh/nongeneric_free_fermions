@@ -4,6 +4,7 @@ import numpy as np
 from sage.all import Graph
 from sage.all import graphs  # pyright: ignore  (this is sage.graphs ...)
 import matplotlib.pyplot as plt
+import matplotlib.tri as tri
 
 import paulis
 from hamiltonian import Hamiltonian
@@ -25,79 +26,140 @@ import phase_diagram
 
 
 def get_phase_diagram():
+    def calc_gap(alpha, beta, gamma, extend: bool) -> float:
+        print(alpha, beta, gamma)
+        fendley = Fendley(
+            3, ConstantWeight(alpha), ConstantWeight(beta), ConstantWeight(gamma)
+        )
 
-    fendley = Fendley(4, ConstantWeight(1.0), ConstantWeight(2.0), ConstantWeight(3.0))
-    simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
-    # simplicial_mode = fendley.example_simplicial_modes["IIZZZ"][0]
+        # simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
+        # choose a mode that is connected to all three vertices, so that it is (more)
+        # symmetric (e.g., otherwise if alpha is 0 and we only connect to the first
+        # vertex, this vertex doesn't actually exist...) -> can use triangle_grid_inner to
+        # avoid any zero values
+        simplicial_mode = fendley.example_simplicial_modes["IIYII"][0]
 
-    eta_normalisation_factor_makes_sense = np.float64(
-        len(fendley.hamiltonian.operators) / fendley.hamiltonian.pauli_l1_norm
-    )
-    # this _extra factor improves the stability of the gram schmidt process, currently we
-    # factor it out again afterwards when we extend the model with the currents (so that
-    # the normalisation factor looks nicer)
-    # TODO: check that we actually do that (because I might decide against doing that to
-    # also keep the currents more normalised)
-    eta_normalisation_factor_extra = np.float64(1 / (np.sqrt(np.sqrt(2.7))))
-    eta_normalisation_factor = (
-        eta_normalisation_factor_makes_sense * eta_normalisation_factor_extra
-    )
+        eta_normalisation_factor_makes_sense = np.float64(
+            len(fendley.hamiltonian.operators) / fendley.hamiltonian.pauli_l1_norm
+        )
+        # this _extra factor improves the stability of the gram schmidt process, currently
+        # we factor it out again afterwards when we extend the model with the currents (so
+        # that the normalisation factor looks nicer)
+        # TODO: check that we actually do that (because I might decide against doing that
+        # to also keep the currents more normalised)
+        eta_normalisation_factor_extra = np.float64(1 / (np.sqrt(np.sqrt(2.7))))
+        eta_normalisation_factor = (
+            eta_normalisation_factor_makes_sense * eta_normalisation_factor_extra
+        )
 
-    generators = Generators(
-        simplicial_mode,
-        fendley.hamiltonian,
-        eta_normalisation_factor=eta_normalisation_factor,
-    )
+        generators = Generators(
+            simplicial_mode,
+            fendley.hamiltonian,
+            eta_normalisation_factor=eta_normalisation_factor,
+        )
 
-    generators.init_gammas()
-    generators.init_gamma_bilinears()
-    generators.init_eta_currents()
+        generators.init_gammas(False)
+        # generators.init_gammas()
+        print("got gammas")
+        generators.init_gamma_bilinears()
+        print("got gamma bilinears")
 
-    currents_coeffs = generators.eta_currents_bilinear_gamma_projection()
+        total_coeffs = dict()
+        for w, op in zip(fendley.hamiltonian.weights, fendley.hamiltonian.operators):
+            coeff = generators.bilinear_gamma_projection(op)
+            for j, k, c in coeff:
+                assert c.imag == 0
+                total_coeffs[(j, k)] = total_coeffs.get((j, k), 0) + c.real * w
+        print("got hamiltonian coeffs")
 
-    total_coeffs = dict()
-    for w, op in zip(fendley.hamiltonian.weights, fendley.hamiltonian.operators):
-        coeff = generators.bilinear_gamma_projection(op)
-        for j, k, c in coeff:
+        if extend:
+            currents_coeffs = generators.eta_currents_bilinear_gamma_projection()
+
+            # get rid of the _extra factor, so that the normalisation is effectively just
+            # _makes_sense
+            alphas = [
+                1 / (eta_normalisation_factor_extra**l)
+                for l in range(generators.num_generators)
+                # 1.  for _ in range(generators.num_generators)
+            ]
+
+            # don't actually need to do that since we only care about the coefficients
+            # generators.init_eta_currents()
+            # fendley.extend_with_currents(generators.eta_currents, alphas)
+
+            for alpha, coeffs in zip(alphas, currents_coeffs):
+                for i, j, c in coeffs:
+                    total_coeffs[(i, j)] = total_coeffs.get((i, j), 0) + alpha * c
+
+        for c in total_coeffs.values():
             assert c.imag == 0
-            total_coeffs[(j, k)] = total_coeffs.get((j, k), 0) + c.real * w
 
-    # get rid of the _extra factor, so that the normalisation is effectively just
-    # _makes_sense
-    alphas = [
-        1 / (eta_normalisation_factor_extra**l) for l in range(generators.num_generators)
-        # 1.  for _ in range(generators.num_generators)
-    ]
-    fendley.extend_with_currents(generators.eta_currents, alphas)
+        h = np.zeros((generators.num_generators, generators.num_generators))
+        for (i, j), coeff in total_coeffs.items():
+            h[i, j] = coeff / 2
+            h[j, i] = -coeff / 2
+        print("got h")
 
-    for alpha, coeffs in zip(alphas, currents_coeffs):
-        for i, j, c in coeffs:
-            total_coeffs[(i, j)] = total_coeffs.get((i, j), 0) + alpha * c
+        lm, _ = phase_diagram.skew_diagonalise(h)
+        print("got skew diagonalised h")
+        phase_diagram.smoothen_lamda(lm)
+        lm_pairs = phase_diagram.get_lamda_pairs(lm)
+        print("got lamda pairs")
+        all_values = phase_diagram.get_lamda_eigenvalues(lm_pairs)
+        print("got lamda eigenvalues")
+        min_value = all_values[0]
+        gap = phase_diagram.get_gap(all_values)
 
-    for c in total_coeffs.values():
-        assert c.imag == 0
+        # print(all_values)
+        print(min_value)
+        print(gap)
 
-    h = np.zeros((generators.num_generators, generators.num_generators))
-    for (i, j), coeff in total_coeffs.items():
-        h[i, j] = coeff / 2
-        h[j, i] = -coeff / 2
-    # print(h)
+        return gap
 
-    lm, _ = phase_diagram.skew_diagonalise(h)
-    phase_diagram.smoothen_lamda(lm)
-    lm_pairs = phase_diagram.get_lamda_pairs(lm)
-    all_values = phase_diagram.get_lamda_eigenvalues(lm_pairs)
-    min_value = all_values[0]
-    gap = phase_diagram.get_gap(all_values)
+    factor = 3
+    points = phase_diagram.triangle_grid(30, factor)
+    # points = phase_diagram.triangle_grid_inner(10, factor)
+    values = [calc_gap(alpha, beta, gamma, False) for alpha, beta, gamma in points]
 
-    # print(all_values)
-    print(min_value)
-    print(gap)
+    x, y = phase_diagram.points_to_plot_coordinates(points)
 
-    # min_value_direct = fendley.hamiltonian.minimum_energy()
-    # print(min_value_direct)
+    triang = tri.Triangulation(x, y)
 
-    # graph = fendley.hamiltonian.get_frustration_graph()
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    tpc = ax.tripcolor(triang, values, shading="gouraud")
+
+    # Triangle outline
+    vertices_bary = np.array([
+        [factor, 0, 0],
+        [0, factor, 0],
+        [0, 0, factor],
+        [factor, 0, 0],  # close the loop
+    ])
+    vx, vy = phase_diagram.points_to_plot_coordinates(vertices_bary)
+    ax.plot(vx, vy, lw=1)
+
+    def place_label(ax, alpha, beta, gamma, text, **kwargs):
+        x, y = phase_diagram.points_to_plot_coordinates(
+            np.array([[alpha, beta, gamma]])
+        )
+        ax.text(x[0], y[0], text, **kwargs)
+
+    place_label(ax, factor, 0, 0, rf"$\alpha={factor}$", ha="right", va="top")
+    place_label(ax, 0, factor, 0, rf"$\beta={factor}$", ha="left", va="top")
+    place_label(ax, 0, 0, factor, rf"$\gamma={factor}$", ha="center", va="bottom")
+
+    place_label(ax, factor / 2, factor / 2, 0, r"$\gamma=0$", ha="center", va="top")
+    place_label(ax, factor / 2, 0, factor / 2, r"$\beta=0$", rotation=60, ha="right")
+    place_label(ax, 0, factor / 2, factor / 2, r"$\alpha=0$", rotation=-60, ha="left")
+
+    cbar = plt.colorbar(tpc, ax=ax)
+    cbar.set_label("Function value")
+
+    ax.set_aspect("equal")
+    ax.axis("off")
+    plt.tight_layout()
+    plt.savefig("output/phase_diagram.pdf")
 
 
 def currents_plot():

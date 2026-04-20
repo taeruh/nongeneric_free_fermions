@@ -26,17 +26,19 @@ class Fendley:
         self.weights = []
         for i in range(self.num_triangles):
             for j, parameter in enumerate([self.alpha, self.beta, self.gamma]):
-                op = Pauli(
-                    self.n,
-                    np.zeros(self.n, dtype=bool),
-                    np.zeros(self.n, dtype=bool),
-                    0,
-                )
-                op.z[3 * i + j] = True
-                op.z[3 * i + (j + 1)] = True
-                op.x[3 * i + (j + 2)] = True
-                self.ops.append(op)
-                self.weights.append(parameter())
+                weight = parameter()
+                if weight != 0:
+                    op = Pauli(
+                        self.n,
+                        np.zeros(self.n, dtype=bool),
+                        np.zeros(self.n, dtype=bool),
+                        0,
+                    )
+                    op.z[3 * i + j] = True
+                    op.z[3 * i + (j + 1)] = True
+                    op.x[3 * i + (j + 2)] = True
+                    self.ops.append(op)
+                    self.weights.append(weight)
 
         self.hamiltonian = Hamiltonian(self.weights, self.ops)
 
