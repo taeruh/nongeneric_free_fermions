@@ -1,0 +1,13 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rust_backend"
+version = "0.1.0"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "rust_backend.rs"
+manifest-path = "rust/Cargo.toml"
+python-source = "python"

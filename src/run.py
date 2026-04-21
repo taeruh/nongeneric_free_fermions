@@ -9,6 +9,7 @@ import matplotlib.tri as tri
 
 import paulis
 from paulis import Pauli
+# from rust_backend.paulis import Pauli, PauliSum
 from hamiltonian import Hamiltonian
 from models.fendley import Fendley
 from models.fukai import Fukai
@@ -25,90 +26,6 @@ import phase_diagram
 #   and the coefficients seem to stay the same between different modes from the same
 #   connectivity to the graph (i.e., connect to one vertex, connect to two vertices,
 #   connect to three vertices)
-
-
-def test_t():
-    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
-
-    simplicial_mode = fendley.example_simplicial_modes["IIYII"][0]
-    generators = Generators(simplicial_mode, fendley.hamiltonian)
-    generators.init_eta_currents()
-    fendley.extend_with_currents(
-        generators.eta_currents,
-        [np.float64(1.0) for _ in generators.eta_currents],
-    )
-
-    graph = fendley.hamiltonian.get_frustration_graph()
-    independent_sets = IndependentSets(graph)
-    alpha = 0
-    for independent_set in independent_sets:
-        length = len(independent_set)
-        if length > alpha:
-            alpha = length
-    charges = []
-    for _ in range(alpha + 1):
-        charges.append([])
-    for independent_set in independent_sets:
-        length = len(independent_set)
-        product = Pauli.identity(fendley.hamiltonian.n)
-        weight = 1
-        for vertex in independent_set:
-            op = fendley.hamiltonian.operators[vertex]
-            w = fendley.hamiltonian.weights[vertex]
-            product = product.multiply_as_paulis(op)
-            weight *= w
-        already_in = False
-        for i, (w, op) in enumerate(charges[length]):
-            if product.is_proportional_to(op):
-                phase = product.phase_difference(op)
-                charges[length][i] = (w + weight * (1j) ** phase, op)
-                already_in = True
-                break
-        if not already_in:
-            charges[length].append((weight, product))
-
-    # for charge in charges:
-    #     for w, op in charge:
-    #         print(f"{w:.2f}, {op.to_string()}")
-    #     print()
-
-    for i in range(len(charges)):
-        for j in range(i + 1, len(charges)):
-            left = paulis.list_multiplication(charges[i], charges[j])
-            right = paulis.list_multiplication(charges[j], charges[i])
-            right = [(w * -1, op) for w, op in right]
-            commutator = paulis.list_addition(left, right)
-            print(f"Commutator of charges {i} and {j}:")
-            print([f"{w:.2f}, {op.to_string()}" for w, op in commutator])
-
-
-    t_plus_u = []
-    t_minus_u = []
-    for k in range(len(charges)):
-        charge = charges[k]
-        t_minus_u.append(charge)
-        sign = (-1) ** k
-        charge = [(w * sign, op) for w, op in charge]
-        t_plus_u.append(charge)
-
-    poly = dict()
-    for i, charge_i in enumerate(t_plus_u):
-        for j, charge_j in enumerate(t_minus_u):
-            degree = i + j
-            prod = paulis.list_multiplication(charge_i, charge_j)
-            if degree not in poly:
-                poly[degree] = prod
-            else:
-                poly[degree] = paulis.list_addition(poly[degree], prod)
-
-    poly = sorted(poly.items())
-    for degree, terms in poly:
-        print(f"Degree {degree}:")
-        for w, op in terms:
-            print(f"{w:.2f}, {op.to_string()}")
-        print()
-
-
 
 
 def get_phase_diagram():
@@ -248,6 +165,87 @@ def get_phase_diagram():
     ax.axis("off")
     plt.tight_layout()
     plt.savefig("output/phase_diagram.pdf")
+
+
+def test_t():
+    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+
+    simplicial_mode = fendley.example_simplicial_modes["IIYII"][0]
+    generators = Generators(simplicial_mode, fendley.hamiltonian)
+    generators.init_eta_currents()
+    fendley.extend_with_currents(
+        generators.eta_currents,
+        [np.float64(1.0) for _ in generators.eta_currents],
+    )
+
+    graph = fendley.hamiltonian.get_frustration_graph()
+    independent_sets = IndependentSets(graph)
+    alpha = 0
+    for independent_set in independent_sets:
+        length = len(independent_set)
+        if length > alpha:
+            alpha = length
+    charges = []
+    for _ in range(alpha + 1):
+        charges.append([])
+    for independent_set in independent_sets:
+        length = len(independent_set)
+        product = Pauli.identity(fendley.hamiltonian.n)
+        weight = 1
+        for vertex in independent_set:
+            op = fendley.hamiltonian.operators[vertex]
+            w = fendley.hamiltonian.weights[vertex]
+            product = product.multiply_as_paulis(op)
+            weight *= w
+        already_in = False
+        for i, (w, op) in enumerate(charges[length]):
+            if product.is_proportional_to(op):
+                phase = product.phase_difference(op)
+                charges[length][i] = (w + weight * (1j) ** phase, op)
+                already_in = True
+                break
+        if not already_in:
+            charges[length].append((weight, product))
+
+    # for charge in charges:
+    #     for w, op in charge:
+    #         print(f"{w:.2f}, {op.to_string()}")
+    #     print()
+
+    for i in range(len(charges)):
+        for j in range(i + 1, len(charges)):
+            left = paulis.list_multiplication(charges[i], charges[j])
+            right = paulis.list_multiplication(charges[j], charges[i])
+            right = [(w * -1, op) for w, op in right]
+            commutator = paulis.list_addition(left, right)
+            print(f"Commutator of charges {i} and {j}:")
+            print([f"{w:.2f}, {op.to_string()}" for w, op in commutator])
+
+    t_plus_u = []
+    t_minus_u = []
+    for k in range(len(charges)):
+        charge = charges[k]
+        t_minus_u.append(charge)
+        sign = (-1) ** k
+        charge = [(w * sign, op) for w, op in charge]
+        t_plus_u.append(charge)
+
+    poly = dict()
+    for i, charge_i in enumerate(t_plus_u):
+        for j, charge_j in enumerate(t_minus_u):
+            degree = i + j
+            prod = paulis.list_multiplication(charge_i, charge_j)
+            if degree not in poly:
+                poly[degree] = prod
+            else:
+                poly[degree] = paulis.list_addition(poly[degree], prod)
+
+    poly = sorted(poly.items())
+    for degree, terms in poly:
+        print(f"Degree {degree}:")
+        for w, op in terms:
+            print(f"{w:.2f}, {op.to_string()}")
+        print()
 
 
 def currents_plot():

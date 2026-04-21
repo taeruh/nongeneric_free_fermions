@@ -1,0 +1,13 @@
+[package]
+name = "rs"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+pyo3 = { version = "0.28.2", default-features = false, features = [
+  "multiple-pymethods",
+] }
+pyo3_wrapped_lib = { path = "../../pyo3_wrapped_lib" }

@@ -143,18 +143,21 @@ impl Pauli {
             phase: new_phase,
         }
     }
-}
 
-impl Display for Pauli {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
+    pub fn representation(&self) -> String {
+        format!(
             "({}, {}, {}; {})",
             self.u.iter().map(|b| if *b { '1' } else { '0' }).collect::<String>(),
             self.l.iter().map(|b| if *b { '1' } else { '0' }).collect::<String>(),
             self.phase,
             self.n
         )
+    }
+}
+
+impl Display for Pauli {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.representation())
     }
 }
 
@@ -165,6 +168,10 @@ pub struct PauliSum(
 );
 
 impl PauliSum {
+    pub fn new(ops: Vec<(f64, Pauli)>) -> Self {
+        Self(ops)
+    }
+
     pub fn multiply(&self, other: &Self) -> Self {
         let mut result = Vec::new();
         for (weight1, pauli1) in self.0.iter() {
@@ -177,7 +184,7 @@ impl PauliSum {
         Self(result)
     }
 
-    pub fn list_addition(&self, other: &Self) -> Self {
+    pub fn add(&self, other: &Self) -> Self {
         let mut result = self.0.clone();
         for (weight, pauli) in other.0.iter() {
             add_helper(&mut result, *weight, pauli);
@@ -185,13 +192,37 @@ impl PauliSum {
         removal_helper(&mut result);
         Self(result)
     }
+
+    /// given a list of (weight, pauli) pairs, return the hilbert schmidt inner product of
+    /// the sum of these operators with another pauli; the paulis in the list should be
+    /// hermition, (we define the inner product so that the conjugation is on the first
+    /// argument into which we pass `ops` (and then don't conjugate it because it is
+    /// hermitian))
+    pub fn single_hilbert_schmidt_inner_product(&self, pauli: &Pauli) -> f64 {
+        let mut total = 0.0;
+        for (weight, op) in self.0.iter() {
+            if op.is_proportional_to(pauli) {
+                let phase = pauli.phase_difference(op);
+                debug_assert!(phase.is_multiple_of(2));
+                match phase {
+                    0 => total += weight,
+                    2 => total -= weight,
+                    _ => unreachable!(),
+                }
+            }
+        }
+        total
+    }
+    // TODO: this method can be improved by assuming that the pauls in self are all
+    // different (i.e., not proportional to each other), because then we can early break
+    // the loop
 }
 
 fn add_helper(list: &mut Vec<(f64, Pauli)>, weight: f64, pauli: &Pauli) {
     for (ret_weight, ret_pauli) in list.iter_mut() {
         if pauli.is_proportional_to(ret_pauli) {
             let phase = pauli.phase_difference(ret_pauli);
-            debug_assert!(phase % 2 == 0);
+            debug_assert!(phase.is_multiple_of(2));
             match phase {
                 0 => *ret_weight += weight,
                 2 => *ret_weight -= weight,
