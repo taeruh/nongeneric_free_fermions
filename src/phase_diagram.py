@@ -100,3 +100,4 @@ def points_to_plot_coordinates(points):
     c = np.array([0.5, np.sqrt(3) / 2])
     xy = points[:, 0, None] * a + points[:, 1, None] * b + points[:, 2, None] * c
     return xy[:, 0], xy[:, 1]
+

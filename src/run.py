@@ -3,10 +3,12 @@ import json
 import numpy as np
 from sage.all import Graph
 from sage.all import graphs  # pyright: ignore  (this is sage.graphs ...)
+from sage.graphs.independent_sets import IndependentSets
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
 import paulis
+from paulis import Pauli
 from hamiltonian import Hamiltonian
 from models.fendley import Fendley
 from models.fukai import Fukai
@@ -25,11 +27,95 @@ import phase_diagram
 #   connect to three vertices)
 
 
+def test_t():
+    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+
+    simplicial_mode = fendley.example_simplicial_modes["IIYII"][0]
+    generators = Generators(simplicial_mode, fendley.hamiltonian)
+    generators.init_eta_currents()
+    fendley.extend_with_currents(
+        generators.eta_currents,
+        [np.float64(1.0) for _ in generators.eta_currents],
+    )
+
+    graph = fendley.hamiltonian.get_frustration_graph()
+    independent_sets = IndependentSets(graph)
+    alpha = 0
+    for independent_set in independent_sets:
+        length = len(independent_set)
+        if length > alpha:
+            alpha = length
+    charges = []
+    for _ in range(alpha + 1):
+        charges.append([])
+    for independent_set in independent_sets:
+        length = len(independent_set)
+        product = Pauli.identity(fendley.hamiltonian.n)
+        weight = 1
+        for vertex in independent_set:
+            op = fendley.hamiltonian.operators[vertex]
+            w = fendley.hamiltonian.weights[vertex]
+            product = product.multiply_as_paulis(op)
+            weight *= w
+        already_in = False
+        for i, (w, op) in enumerate(charges[length]):
+            if product.is_proportional_to(op):
+                phase = product.phase_difference(op)
+                charges[length][i] = (w + weight * (1j) ** phase, op)
+                already_in = True
+                break
+        if not already_in:
+            charges[length].append((weight, product))
+
+    # for charge in charges:
+    #     for w, op in charge:
+    #         print(f"{w:.2f}, {op.to_string()}")
+    #     print()
+
+    for i in range(len(charges)):
+        for j in range(i + 1, len(charges)):
+            left = paulis.list_multiplication(charges[i], charges[j])
+            right = paulis.list_multiplication(charges[j], charges[i])
+            right = [(w * -1, op) for w, op in right]
+            commutator = paulis.list_addition(left, right)
+            print(f"Commutator of charges {i} and {j}:")
+            print([f"{w:.2f}, {op.to_string()}" for w, op in commutator])
+
+
+    t_plus_u = []
+    t_minus_u = []
+    for k in range(len(charges)):
+        charge = charges[k]
+        t_minus_u.append(charge)
+        sign = (-1) ** k
+        charge = [(w * sign, op) for w, op in charge]
+        t_plus_u.append(charge)
+
+    poly = dict()
+    for i, charge_i in enumerate(t_plus_u):
+        for j, charge_j in enumerate(t_minus_u):
+            degree = i + j
+            prod = paulis.list_multiplication(charge_i, charge_j)
+            if degree not in poly:
+                poly[degree] = prod
+            else:
+                poly[degree] = paulis.list_addition(poly[degree], prod)
+
+    poly = sorted(poly.items())
+    for degree, terms in poly:
+        print(f"Degree {degree}:")
+        for w, op in terms:
+            print(f"{w:.2f}, {op.to_string()}")
+        print()
+
+
+
+
 def get_phase_diagram():
     def calc_gap(alpha, beta, gamma, extend: bool) -> float:
         print(alpha, beta, gamma)
         fendley = Fendley(
-            3, ConstantWeight(alpha), ConstantWeight(beta), ConstantWeight(gamma)
+            2, ConstantWeight(alpha), ConstantWeight(beta), ConstantWeight(gamma)
         )
 
         # simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
@@ -117,9 +203,9 @@ def get_phase_diagram():
         return gap
 
     factor = 3
-    points = phase_diagram.triangle_grid(30, factor)
+    points = phase_diagram.triangle_grid(15, factor)
     # points = phase_diagram.triangle_grid_inner(10, factor)
-    values = [calc_gap(alpha, beta, gamma, False) for alpha, beta, gamma in points]
+    values = [calc_gap(alpha, beta, gamma, True) for alpha, beta, gamma in points]
 
     x, y = phase_diagram.points_to_plot_coordinates(points)
 
@@ -130,12 +216,14 @@ def get_phase_diagram():
     tpc = ax.tripcolor(triang, values, shading="gouraud")
 
     # Triangle outline
-    vertices_bary = np.array([
-        [factor, 0, 0],
-        [0, factor, 0],
-        [0, 0, factor],
-        [factor, 0, 0],  # close the loop
-    ])
+    vertices_bary = np.array(
+        [
+            [factor, 0, 0],
+            [0, factor, 0],
+            [0, 0, factor],
+            [factor, 0, 0],  # close the loop
+        ]
+    )
     vx, vy = phase_diagram.points_to_plot_coordinates(vertices_bary)
     ax.plot(vx, vy, lw=1)
 

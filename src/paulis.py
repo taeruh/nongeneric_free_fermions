@@ -189,6 +189,12 @@ def list_addition(
                 break
         if not already_in:
             result.append((weight, pauli))
+    to_remove = []
+    for i, (weight, _) in enumerate(result):
+        if np.isclose(weight, 0):
+            to_remove.append(i)
+    for i in reversed(to_remove):
+        del result[i]
     return result
 
 
