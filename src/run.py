@@ -27,7 +27,7 @@ import phase_diagram
 
 
 def get_phase_diagram():
-    num_triangles = 5
+    num_triangles = 6
 
     def calc_gap(alpha, beta, gamma, extend: bool) -> float:
         print(alpha, beta, gamma)
@@ -125,7 +125,7 @@ def get_phase_diagram():
         return gap
 
     factor = 3
-    points = phase_diagram.triangle_grid(15, factor)
+    points = phase_diagram.triangle_grid(6, factor)
     # points = phase_diagram.triangle_grid_inner(10, factor)
     values = [calc_gap(alpha, beta, gamma, True) for alpha, beta, gamma in points]
 
