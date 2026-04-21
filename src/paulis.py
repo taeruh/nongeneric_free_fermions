@@ -107,7 +107,6 @@ class Pauli:
         return phase
 
     def symplectic_inner_product(self, other: "Pauli") -> int:
-        """abc"""
         assert self.n == other.n
         ip = False
         for i in range(self.n):
