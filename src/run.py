@@ -7,9 +7,7 @@ from sage.graphs.independent_sets import IndependentSets
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
-import paulis
-from paulis import Pauli
-# from rust_backend.paulis import Pauli, PauliSum
+from rust_backend.paulis import Pauli, PauliSum
 from hamiltonian import Hamiltonian
 from models.fendley import Fendley
 from models.fukai import Fukai
@@ -29,11 +27,17 @@ import phase_diagram
 
 
 def get_phase_diagram():
+    num_triangles = 5
+
     def calc_gap(alpha, beta, gamma, extend: bool) -> float:
         print(alpha, beta, gamma)
         fendley = Fendley(
-            2, ConstantWeight(alpha), ConstantWeight(beta), ConstantWeight(gamma)
+            num_triangles,
+            ConstantWeight(alpha),
+            ConstantWeight(beta),
+            ConstantWeight(gamma),
         )
+        expected_rank = 2 * num_triangles  # no +1 because we choose the 3-connect
 
         # simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
         # choose a mode that is connected to all three vertices, so that it is (more)
@@ -59,6 +63,7 @@ def get_phase_diagram():
             simplicial_mode,
             fendley.hamiltonian,
             eta_normalisation_factor=eta_normalisation_factor,
+            max_search=expected_rank - 1,
         )
 
         generators.init_gammas(False)
@@ -187,7 +192,7 @@ def test_t():
             alpha = length
     charges = []
     for _ in range(alpha + 1):
-        charges.append([])
+        charges.append(PauliSum([]))
     for independent_set in independent_sets:
         length = len(independent_set)
         product = Pauli.identity(fendley.hamiltonian.n)
@@ -197,15 +202,7 @@ def test_t():
             w = fendley.hamiltonian.weights[vertex]
             product = product.multiply_as_paulis(op)
             weight *= w
-        already_in = False
-        for i, (w, op) in enumerate(charges[length]):
-            if product.is_proportional_to(op):
-                phase = product.phase_difference(op)
-                charges[length][i] = (w + weight * (1j) ** phase, op)
-                already_in = True
-                break
-        if not already_in:
-            charges[length].append((weight, product))
+        charges[length].single_add(weight, product)
 
     # for charge in charges:
     #     for w, op in charge:
@@ -214,36 +211,37 @@ def test_t():
 
     for i in range(len(charges)):
         for j in range(i + 1, len(charges)):
-            left = paulis.list_multiplication(charges[i], charges[j])
-            right = paulis.list_multiplication(charges[j], charges[i])
-            right = [(w * -1, op) for w, op in right]
-            commutator = paulis.list_addition(left, right)
+            commutator = (charges[i].multiply(charges[j])).subtract(
+                charges[j].multiply(charges[i])
+            )
             print(f"Commutator of charges {i} and {j}:")
-            print([f"{w:.2f}, {op.to_string()}" for w, op in commutator])
+            print([f"{w:.2f}, {op.to_string()}" for w, op in commutator.to_py_list()])
 
     t_plus_u = []
     t_minus_u = []
     for k in range(len(charges)):
         charge = charges[k]
-        t_minus_u.append(charge)
-        sign = (-1) ** k
-        charge = [(w * sign, op) for w, op in charge]
+        t_minus_u.append(charge.deep_copy())
+        # sign = (-1) ** k
+        # charge = [(w * sign, op) for w, op in charge]
+        if k % 2 == 1:
+            charge.multiply_with_float(-1.0)
         t_plus_u.append(charge)
 
     poly = dict()
     for i, charge_i in enumerate(t_plus_u):
         for j, charge_j in enumerate(t_minus_u):
             degree = i + j
-            prod = paulis.list_multiplication(charge_i, charge_j)
+            prod = charge_i.multiply(charge_j)
             if degree not in poly:
                 poly[degree] = prod
             else:
-                poly[degree] = paulis.list_addition(poly[degree], prod)
+                poly[degree] = poly[degree].add(prod)
 
     poly = sorted(poly.items())
     for degree, terms in poly:
         print(f"Degree {degree}:")
-        for w, op in terms:
+        for w, op in terms.to_py_list():
             print(f"{w:.2f}, {op.to_string()}")
         print()
 
@@ -251,7 +249,7 @@ def test_t():
 def currents_plot():
 
     low_num_triangles = 1
-    up_num_triangles = 6
+    up_num_triangles = 4
 
     weight = 1
     # seed = 3
@@ -268,8 +266,8 @@ def currents_plot():
     # simplicial_mode_choice = "ZZZZZ"
     # simplicial_mode_choice = "IZZZZ"
 
-    # load_data = False
-    load_data = True
+    load_data = False
+    # load_data = True
 
     os.makedirs("output/currents", exist_ok=True)
     file_identifier = (
@@ -429,8 +427,6 @@ def run():
 
     house_of_graphs.save_adj_matrix(graph)
 
-    return
-
     claws = set()
     # for claw in labeled_graph.subgraph_search_iterator(
     for claw in graph.subgraph_search_iterator(
@@ -443,13 +439,13 @@ def run():
 
     claws_ops = []
     for claw in claws:
-        ops = [
+        ops = PauliSum([
             (
                 fendley_extended.hamiltonian.weights[i],
                 fendley_extended.hamiltonian.operators[i],
             )
             for i in claw
-        ]
+        ])
         claws_ops.append(ops)
 
     print(len(claws_ops), "claws found in the frustration graph")
@@ -457,10 +453,9 @@ def run():
     while len(claws_ops) > 0:
         claw = claws_ops.pop()
         for other in claws_ops:
-            prod = paulis.list_multiplication(claw, other)
-            # print(len(prod))
-            if len(prod) == 4:
-                print([(f"{w:.2f}, {op.to_string()}") for w, op in prod])
+            prod = claw.multiply(other)
+            if prod.len() == 4:
+                print([(f"{w:.2f}, {op.to_string()}") for w, op in prod.to_py_list()])
                 weights = []
                 ops = []
                 for w, op in prod:
@@ -511,9 +506,10 @@ def trying_to_reconstruct_fukai_from_bilinears():
 
     print([(w, op.to_string()) for op, w in zip(fukai.fukai_ops, fukai.fukai_weights)])
 
+    generators.init_gammas()
     generators.init_gamma_bilinears()
 
-    reconstructed = []
+    reconstructed = PauliSum([])
     # for fukai_op in fukai.fukai_ops:
     for fukai_op in fukai.fukai_ops[:1]:
         projection = generators.bilinear_gamma_projection(fukai_op)
@@ -522,27 +518,13 @@ def trying_to_reconstruct_fukai_from_bilinears():
 
         for i, j, coeff in projection:
             inner_product += coeff**2
-            print(coeff)
-            part = generators.gamma_bilinears[(i, j)]
-            for w, op in part:
-                already_in = False
-                for i, (rw, rop) in enumerate(reconstructed):
-                    if op.is_proportional_to(rop):
-                        phase = op.phase_difference(rop)
-                        reconstructed[i] = (rw + coeff * w * (1j) ** phase, rop)
-                        already_in = True
-                        break
-                if not already_in:
-                    reconstructed.append((coeff * w, op))
+            part = generators.gamma_bilinears[(i, j)].deep_copy()
+            part.multiply_with_float(coeff)
+            reconstructed = reconstructed.add(part)
 
         print(inner_product)
         print()
 
-    to_remove = []
-    for i, (coeff, op) in enumerate(reconstructed):
-        if np.isclose(coeff, 0):
-            to_remove.append(i)
-    for i in reversed(to_remove):
-        del reconstructed[i]
+    print(fukai.fukai_ops[0].to_string())
 
-    print([f"{coeff:.4f}, {op.to_string()}" for coeff, op in reconstructed])
+    print([f"{coeff:.4f}, {op.to_string()}" for coeff, op in reconstructed.to_py_list()])

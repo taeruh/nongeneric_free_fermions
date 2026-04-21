@@ -1,7 +1,7 @@
 import numpy as np
 from sage.all import Graph
 from typing import Tuple
-from paulis import Pauli
+from rust_backend.paulis import Pauli
 from numpy.typing import NDArray
 
 
@@ -13,7 +13,7 @@ class Hamiltonian:
             print("Warning: Hamiltonian has no terms; setting spin number to 1!")
             self.n = 1
         else:
-            self.n = ops[0].n
+            self.n = ops[0].n()
 
         # note that the proportionality check also implicitly checks that all ops have the
         # same n, since otherwise they cannot be proportional (the method would raise an

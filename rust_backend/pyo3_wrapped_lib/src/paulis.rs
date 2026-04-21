@@ -17,6 +17,22 @@ impl Pauli {
         Self(LibPauli::new(n, u.as_slice(), l.as_slice(), phase))
     }
 
+    fn n(&self) -> usize {
+        self.0.n()
+    }
+
+    fn phase(&self) -> u8 {
+        self.0.phase()
+    }
+
+    fn set_phase(&mut self, phase: u8) {
+        self.0.set_phase(phase);
+    }
+
+    fn add_to_phase(&mut self, delta: u8) {
+        self.0.add_to_phase(delta);
+    }
+
     #[classmethod]
     fn identity(_: &Bound<'_, PyType>, n: usize) -> Self {
         Self(LibPauli::identity(n))
@@ -66,7 +82,8 @@ impl Pauli {
     }
 }
 
-#[pyo3::pyclass(subclass)]
+#[pyo3::pyclass(subclass, from_py_object)]
+#[derive(Clone)]
 pub struct PauliSum(LibPauliSum);
 
 #[pyo3::pymethods]
@@ -74,6 +91,10 @@ impl PauliSum {
     #[new]
     fn __new__(ops: Vec<(f64, Pauli)>) -> Self {
         Self(LibPauliSum::new(ops.into_iter().map(|(c, p)| (c, p.0)).collect()))
+    }
+
+    fn deep_copy(&self) -> Self {
+        self.clone()
     }
 
     fn multiply(&self, other: &Self) -> Self {
@@ -84,12 +105,36 @@ impl PauliSum {
         Self(self.0.add(&other.0))
     }
 
-    fn to_py_list(&self) -> Vec<(f64, Pauli)> {
-        self.0.0.iter().map(|(c, p)| (*c, Pauli(p.clone()))).collect()
+    fn subtract(&self, other: &Self) -> Self {
+        Self(self.0.subtract(&other.0))
+    }
+
+    fn single_add(&mut self, weight: f64, pauli: &Pauli) {
+        self.0.single_add(weight, &pauli.0)
+    }
+
+    fn remove_zero_weights(&mut self) {
+        self.0.remove_zero_weights();
+    }
+
+    fn multiply_with_one_imag_unit(&mut self) {
+        self.0.multiply_with_one_imag_unit()
+    }
+
+    fn multiply_with_float(&mut self, factor: f64) {
+        self.0.multiply_with_float(factor)
     }
 
     fn single_hilbert_schmidt_inner_product(&self, other: &Pauli) -> f64 {
         self.0.single_hilbert_schmidt_inner_product(&other.0)
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn to_py_list(&self) -> Vec<(f64, Pauli)> {
+        self.0.0.iter().map(|(c, p)| (*c, Pauli(p.clone()))).collect()
     }
 }
 

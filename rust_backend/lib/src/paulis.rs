@@ -4,10 +4,10 @@ use bitvec::vec::BitVec;
 
 #[derive(Clone, Debug)]
 pub struct Pauli {
-    pub n: usize,
-    pub u: BitVec,
-    pub l: BitVec,
-    pub phase: u8,
+    n: usize,
+    u: BitVec,
+    l: BitVec,
+    phase: u8,
 }
 
 impl Pauli {
@@ -20,6 +20,22 @@ impl Pauli {
             l: BitVec::from_iter(l.iter()),
             phase,
         }
+    }
+
+    pub fn n(&self) -> usize {
+        self.n
+    }
+
+    pub fn phase(&self) -> u8 {
+        self.phase
+    }
+
+    pub fn set_phase(&mut self, phase: u8) {
+        self.phase = phase;
+    }
+
+    pub fn add_to_phase(&mut self, phase_diff: u8) {
+        self.phase = (self.phase + phase_diff) % 4;
     }
 
     pub fn identity(n: usize) -> Self {
@@ -161,6 +177,7 @@ impl Display for Pauli {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct PauliSum(
     // we never have complex weights, as we ensure to make all the paulis always hermitian
     // (-> any phase differences are in {0, 2})
@@ -193,6 +210,36 @@ impl PauliSum {
         Self(result)
     }
 
+    pub fn subtract(&self, other: &Self) -> Self {
+        let mut result = self.0.clone();
+        for (weight, pauli) in other.0.iter() {
+            add_helper(&mut result, -weight, pauli);
+        }
+        removal_helper(&mut result);
+        Self(result)
+    }
+
+    pub fn single_add(&mut self, weight: f64, pauli: &Pauli) {
+        add_helper(&mut self.0, weight, pauli);
+        removal_helper(&mut self.0);
+    }
+
+    pub fn remove_zero_weights(&mut self) {
+        removal_helper(&mut self.0);
+    }
+
+    pub fn multiply_with_one_imag_unit(&mut self) {
+        for (_, pauli) in self.0.iter_mut() {
+            pauli.add_to_phase(1);
+        }
+    }
+
+    pub fn multiply_with_float(&mut self, scalar: f64) {
+        for (weight, _) in self.0.iter_mut() {
+            *weight *= scalar;
+        }
+    }
+
     /// given a list of (weight, pauli) pairs, return the hilbert schmidt inner product of
     /// the sum of these operators with another pauli; the paulis in the list should be
     /// hermition, (we define the inner product so that the conjugation is on the first
@@ -216,6 +263,10 @@ impl PauliSum {
     // TODO: this method can be improved by assuming that the pauls in self are all
     // different (i.e., not proportional to each other), because then we can early break
     // the loop
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 fn add_helper(list: &mut Vec<(f64, Pauli)>, weight: f64, pauli: &Pauli) {
@@ -241,7 +292,7 @@ fn removal_helper(ops: &mut Vec<(f64, Pauli)>) {
         .iter()
         .enumerate()
         .filter_map(|(i, (weight, _))| {
-            if weight.abs() < 1e-10 {
+            if weight.abs() < 1e-8 {
                 Some(i)
             } else {
                 None

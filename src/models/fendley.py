@@ -1,7 +1,7 @@
 import numpy as np
 
 from hamiltonian import Hamiltonian
-from paulis import Pauli
+from rust_backend.paulis import Pauli, PauliSum
 from .weights import Weight, ConstantWeight
 
 
@@ -28,15 +28,12 @@ class Fendley:
             for j, parameter in enumerate([self.alpha, self.beta, self.gamma]):
                 weight = parameter()
                 if weight != 0:
-                    op = Pauli(
+                    op = Pauli.from_indices(
                         self.n,
-                        np.zeros(self.n, dtype=bool),
-                        np.zeros(self.n, dtype=bool),
+                        [3 * i + j, 3 * i + (j + 1)],
+                        [3 * i + (j + 2)],
                         0,
                     )
-                    op.z[3 * i + j] = True
-                    op.z[3 * i + (j + 1)] = True
-                    op.x[3 * i + (j + 2)] = True
                     self.ops.append(op)
                     self.weights.append(weight)
 
@@ -69,14 +66,14 @@ class Fendley:
 
     def extend_with_currents(
         self,
-        currents: list[list[tuple[np.float64, Pauli]]],
+        currents: list[PauliSum],
         current_alpha: list[np.float64],
     ):
         assert len(currents) == len(current_alpha)
         self.current_alpha = current_alpha
 
         for alpha, current in zip(current_alpha, currents):
-            for w, op in current:
+            for w, op in current.to_py_list():
                 already_in = False
                 for i, self_op in enumerate(self.ops):
                     if op.is_proportional_to(self_op):

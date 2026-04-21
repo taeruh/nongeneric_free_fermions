@@ -1,7 +1,7 @@
 import numpy as np
 
 from hamiltonian import Hamiltonian
-from paulis import Pauli
+from rust_backend.paulis import Pauli
 from .weights import Weight, ConstantWeight
 
 
@@ -45,15 +45,12 @@ class Fukai:
             for j, parameter in enumerate(
                 [self.fendley_alpha, self.fendley_beta, self.fendley_gamma]
             ):
-                op = Pauli(
+                op = Pauli.from_indices(
                     self.n,
-                    np.zeros(self.n, dtype=bool),
-                    np.zeros(self.n, dtype=bool),
+                    [3 * m + j, 3 * m + (j + 1)],
+                    [3 * m + (j + 2)],
                     0,
                 )
-                op.z[3 * m + j] = True
-                op.z[3 * m + (j + 1)] = True
-                op.x[3 * m + (j + 2)] = True
                 self.fendley_ops.append(op)
                 self.fendley_weights.append(parameter())
 
