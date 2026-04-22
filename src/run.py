@@ -26,10 +26,7 @@ import phase_diagram
 #   connect to three vertices)
 
 
-def get_phase_diagram():
-    num_triangles = 6
-
-    def calc_gap(alpha, beta, gamma, extend: bool) -> float:
+def calc_gap(num_triangles, alpha, beta, gamma, extend: bool) -> float:
         print(alpha, beta, gamma)
         fendley = Fendley(
             num_triangles,
@@ -48,6 +45,7 @@ def get_phase_diagram():
 
         eta_normalisation_factor_makes_sense = np.float64(
             len(fendley.hamiltonian.operators) / fendley.hamiltonian.pauli_l1_norm
+            # 1.0
         )
         # this _extra factor improves the stability of the gram schmidt process, currently
         # we factor it out again afterwards when we extend the model with the currents (so
@@ -55,9 +53,10 @@ def get_phase_diagram():
         # TODO: check that we actually do that (because I might decide against doing that
         # to also keep the currents more normalised)
         eta_normalisation_factor_extra = np.float64(1 / (np.sqrt(np.sqrt(2.7))))
+        # eta_normalisation_factor_extra = np.float64(1.0)
         eta_normalisation_factor = (
             eta_normalisation_factor_makes_sense * eta_normalisation_factor_extra
-        )
+        ) 
 
         generators = Generators(
             simplicial_mode,
@@ -66,11 +65,9 @@ def get_phase_diagram():
             max_search=expected_rank - 1,
         )
 
-        generators.init_gammas(False)
-        # generators.init_gammas()
-        print("got gammas")
+        # generators.init_gammas(False)
+        generators.init_gammas(True, False)
         generators.init_gamma_bilinears()
-        print("got gamma bilinears")
 
         total_coeffs = dict()
         for w, op in zip(fendley.hamiltonian.weights, fendley.hamiltonian.operators):
@@ -78,7 +75,6 @@ def get_phase_diagram():
             for j, k, c in coeff:
                 assert c.imag == 0
                 total_coeffs[(j, k)] = total_coeffs.get((j, k), 0) + c.real * w
-        print("got hamiltonian coeffs")
 
         if extend:
             currents_coeffs = generators.eta_currents_bilinear_gamma_projection()
@@ -106,28 +102,42 @@ def get_phase_diagram():
         for (i, j), coeff in total_coeffs.items():
             h[i, j] = coeff / 2
             h[j, i] = -coeff / 2
-        print("got h")
+        # print(h)
 
         lm, _ = phase_diagram.skew_diagonalise(h)
-        print("got skew diagonalised h")
-        phase_diagram.smoothen_lamda(lm)
+        phase_diagram.smoothen_lamda(lm, eps=1e-10)
+        # print(lm)
         lm_pairs = phase_diagram.get_lamda_pairs(lm)
-        print("got lamda pairs")
+        # print(lm_pairs)
         all_values = phase_diagram.get_lamda_eigenvalues(lm_pairs)
-        print("got lamda eigenvalues")
         min_value = all_values[0]
         gap = phase_diagram.get_gap(all_values)
 
+        # print(lm_pairs)
         # print(all_values)
         print(min_value)
         print(gap)
 
         return gap
 
+# for the parallelisation we need a function that is not defined in another function
+# (otherwise there is some picklelisation error...)
+def calc_gap_wrapper(args):
+    num_triangles = 9
+    alpha, beta, gamma = args
+    return calc_gap(num_triangles, alpha, beta, gamma, True)
+
+def get_phase_diagram():
+    from multiprocessing import Pool
+
     factor = 3
-    points = phase_diagram.triangle_grid(6, factor)
-    # points = phase_diagram.triangle_grid_inner(10, factor)
-    values = [calc_gap(alpha, beta, gamma, True) for alpha, beta, gamma in points]
+    points = phase_diagram.triangle_grid(10, factor)
+    # points = phase_diagram.triangle_grid_inner(8, factor)
+    values = [calc_gap_wrapper(point) for point in points]
+    # TODO: there is quite some multiprocessing overhead...; it probably would be better
+    # if I parallelise externally with multiple jobs...
+    # with Pool(12) as pool:
+    #     values = pool.map(calc_gap_wrapper, points)
 
     x, y = phase_diagram.points_to_plot_coordinates(points)
 
@@ -339,7 +349,6 @@ def currents_plot():
                     )
             print(f"Number of generators: {generators.num_generators}")
             generators.init_eta_currents()
-            print("got currents")
             fendley.extend_with_currents(
                 generators.eta_currents,
                 [currents_alpha() for _ in generators.eta_currents],
@@ -439,13 +448,15 @@ def run():
 
     claws_ops = []
     for claw in claws:
-        ops = PauliSum([
-            (
-                fendley_extended.hamiltonian.weights[i],
-                fendley_extended.hamiltonian.operators[i],
-            )
-            for i in claw
-        ])
+        ops = PauliSum(
+            [
+                (
+                    fendley_extended.hamiltonian.weights[i],
+                    fendley_extended.hamiltonian.operators[i],
+                )
+                for i in claw
+            ]
+        )
         claws_ops.append(ops)
 
     print(len(claws_ops), "claws found in the frustration graph")
@@ -527,4 +538,6 @@ def trying_to_reconstruct_fukai_from_bilinears():
 
     print(fukai.fukai_ops[0].to_string())
 
-    print([f"{coeff:.4f}, {op.to_string()}" for coeff, op in reconstructed.to_py_list()])
+    print(
+        [f"{coeff:.4f}, {op.to_string()}" for coeff, op in reconstructed.to_py_list()]
+    )

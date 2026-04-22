@@ -13,7 +13,7 @@ def skew_diagonalise(
     return lm, km  # pyright: ignore
 
 
-def smoothen_lamda(lm: NDArray[np.float64], eps: float = 1e-13) -> None:
+def smoothen_lamda(lm: NDArray[np.float64], eps: float = 1e-12) -> None:
     dims = lm.shape
     for i in range(dims[0]):
         for j in range(dims[1]):

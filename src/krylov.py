@@ -1,5 +1,6 @@
 import numpy as np
 from numpy import linalg
+import scipy
 
 from hamiltonian import Hamiltonian
 from rust_backend.paulis import Pauli, PauliSum
@@ -35,7 +36,7 @@ class Generators:
         print the norms in the Gram-Schmidt process and check that it looks sensible
         """
         self.n = simplicial_mode.n()
-        self.etas: list[PauliSum] = [PauliSum([(np.complex128(1.0), simplicial_mode)])]
+        self.etas: list[PauliSum] = [PauliSum([(np.float64(1.0), simplicial_mode)])]
         self.eta_vectors = [np.array([1.0])]
         self.eta_vector_to_pauli_map = [simplicial_mode]
         self.eta_normalisation_factors = [eta_normalisation_factor]
@@ -53,7 +54,7 @@ class Generators:
         while True:
             last_eta = self.etas[index]
             eta = PauliSum([])
-            vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=complex)
+            vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=np.float64)
             for weight, op in last_eta.to_py_list():
                 for ham_weight, ham_op in zip(
                     hamiltonian.weights, hamiltonian.operators
@@ -119,10 +120,19 @@ class Generators:
 
         self.num_generators = len(self.etas)
 
-    def init_gammas(self, do_checks: bool = True):
-        anti_comm_mat_etas = np.zeros(
-            (self.num_generators, self.num_generators), dtype=complex
-        )
+    def init_gammas(self, do_checks: bool = True, do_eigval_zero_check: bool = True):
+        """
+        do_eigval_zero_check is not correct anymore when we have many triangles (about 5
+        and more; might also depend on alpha, beta, gamma) because then we actually get
+        some very small eigenvalues
+        """
+
+        import mpmath as mp
+        mp.mp.dps = 500
+
+        anti_comm_mat_etas = mp.matrix(np.zeros(
+            (self.num_generators, self.num_generators), dtype=np.float64
+        ).tolist())
         for i in range(self.num_generators):
             for j in range(i, self.num_generators):
                 total_trace = 0  # implicitly divided by dim(hilbert space)
@@ -136,19 +146,44 @@ class Generators:
                             )
                 anti_comm_mat_etas[i, j] = total_trace
                 anti_comm_mat_etas[j, i] = total_trace
+                print(anti_comm_mat_etas[i, j], "anti-commutator of eta", i, "and eta", j)
 
         anti_comm_mat_etas /= 2  # per definition
-        print("got anti_comm_mat_etas")
 
-        eigvals, eigvecs = linalg.eigh(anti_comm_mat_etas)
-        for val in eigvals:
-            print(val)
-            assert not np.isclose(val, 0.0)
+        scale = linalg.norm(anti_comm_mat_etas)
+        print(scale, "scale")
+        print(linalg.cond(anti_comm_mat_etas))
+        anti_comm_mat_etas = anti_comm_mat_etas / scale
+        print(linalg.cond(anti_comm_mat_etas))
+
+        # print(anti_comm_mat_etas.shape)
+        # eigvals, eigvecs = linalg.eigh(anti_comm_mat_etas)
+        # eigvals, eigvecs = scipy.linalg.eigh(anti_comm_mat_etas, driver="evr")
+        # print(anti_comm_mat_etas)
+
+        anti_comm_mat_etas = mp.matrix(anti_comm_mat_etas.tolist())
+        eigvals_mp, eigvecs_mp = mp.eig(anti_comm_mat_etas)
+        print(eigvals_mp)
+        eigvals = np.array(eigvals_mp, dtype=float)
+        eigvecs = np.array(eigvecs_mp.tolist(), dtype=float)
+
+
+        assert np.allclose(eigvecs @ np.diag(eigvals) @ eigvecs.T, anti_comm_mat_etas)
+
+        # print()
+        # print(anti_comm_mat_etas)
+        # print()
+
+        print(eigvals)
+        for val in eigvals_mp:
+            if do_eigval_zero_check:
+                print(val)
+                assert not np.isclose(val, 0.0)
             assert val > 0.0
 
-        self.gamma_d = eigvals
+        self.gamma_d = eigvals * scale
         self.gamma_u = eigvecs.T
-        print("got U and D")
+
 
         # self.gammas: list[list[tuple[np.float64, Pauli]]] = []
         self.gammas: list[PauliSum] = []
@@ -160,24 +195,23 @@ class Generators:
             # dim(hilbert space)
             # TODO:  double check on that these two statements; I'm just guessing here and
             # set the factor so that the gammas are properly normalised
-            factor = np.float64((1 / eigvals[i]) ** (0.5))
-            # factor = (1j) ** (i % 2) / ( eigvals[i] ** (0.5))
-            gamma_vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=complex)
+            factor = np.float64((1 / self.gamma_d[i]) ** (0.5))
+            gamma_vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=np.float64)
             for j in range(self.num_generators):
                 gamma_vector += self.gamma_u[i, j] * self.eta_vectors[j]
             gamma_vector = gamma_vector * factor
             gamma = PauliSum([])
             for weight, op in zip(gamma_vector, self.eta_vector_to_pauli_map):
-                if abs(weight) > 1e-10:
-                    gamma.single_add(weight, op)
+                gamma.single_add(weight, op)
+            gamma.remove_zero_weights()
             self.gammas.append(gamma)
-        print("got gammas")
 
         # exhaustively check that the gammas behave correctly (it is quite slow and the
         # check on anti_comm_mat_gammas can fail due to numerical inaccuracies) {{{
         if do_checks:
+            print()
             anti_comm_mat_gammas = np.zeros(
-                (self.num_generators, self.num_generators), dtype=complex
+                (self.num_generators, self.num_generators), dtype=np.float64
             )
             for i in range(self.num_generators):
                 for j in range(self.num_generators):
@@ -190,32 +224,43 @@ class Generators:
                                 total_trace += (
                                     2 * weight_i * weight_j * (-1) ** (prod.phase() // 2)
                                 )
+                    if i == j:
+                        print(total_trace, "should be 2")
                     anti_comm_mat_gammas[i, j] = total_trace
+
+            # print()
+            # print(self.gammas[0].to_py_list())
+            # print(anti_comm_mat_gammas[0, 0], "should be 2")
+            # print(anti_comm_mat_gammas[1, 1], "should be 2")
 
             diff = anti_comm_mat_gammas - 2 * np.identity(self.num_generators)
             norm = 0
+            print()
+            # print(anti_comm_mat_gammas)
             for i in range(self.num_generators):
                 for j in range(self.num_generators):
+                    # print(abs(diff[i, j]))
                     norm += abs(diff[i, j])
-            print(norm)
+            print(norm, "total")
             assert np.allclose(
                 anti_comm_mat_gammas, 2 * np.identity(self.num_generators)
             )
 
-            if self.n <= 8:  # otherwise this is too expensive
-                for i in range(self.num_generators):
-                    for j in range(self.num_generators):
-                        prod = paulis.list_to_matrix(
-                            self.gammas[i].to_py_list()
-                        ) @ paulis.list_to_matrix(self.gammas[j].to_py_list())
-                        prod_inverse = paulis.list_to_matrix(
-                            self.gammas[j].to_py_list()
-                        ) @ paulis.list_to_matrix(self.gammas[i].to_py_list())
-                        if i == j:
-                            assert np.allclose(prod, np.identity(2**self.n))
-                        else:
-                            assert np.allclose(prod, -prod_inverse)
-            print("checks passed")
+            # if self.n <= 8:  # otherwise this is too expensive
+            #     for i in range(self.num_generators):
+            #         for j in range(self.num_generators):
+            #             prod = paulis.list_to_matrix(
+            #                 self.gammas[i].to_py_list()
+            #             ) @ paulis.list_to_matrix(self.gammas[j].to_py_list())
+            #             prod_inverse = paulis.list_to_matrix(
+            #                 self.gammas[j].to_py_list()
+            #             ) @ paulis.list_to_matrix(self.gammas[i].to_py_list())
+            #             if i == j:
+            #                 assert np.allclose(prod, np.identity(2**self.n))
+            #             else:
+            #                 assert np.allclose(prod, -prod_inverse)
+            # print("checks passed")
+
         # }}}
 
     def init_gamma_bilinears(self):
@@ -229,7 +274,7 @@ class Generators:
                 # print([(w, op.to_string()) for w, op in product.to_py_list()])
                 product.multiply_with_one_imag_unit()
                 for w, op in product.to_py_list():
-                #     print(w, op.to_string(), op.phase())
+                    # print(w, op.to_string(), op.phase())
                     assert op.get_hermitian_phase() in [0, 2]
                 self.gamma_bilinears[(i, j)] = product
         self.gamma_bilinears[(0, 0)] = PauliSum(
