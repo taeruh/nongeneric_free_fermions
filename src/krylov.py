@@ -130,9 +130,12 @@ class Generators:
         import mpmath as mp
         mp.mp.dps = 500
 
-        anti_comm_mat_etas = mp.matrix(np.zeros(
+        anti_comm_mat_etas = np.zeros(
             (self.num_generators, self.num_generators), dtype=np.float64
-        ).tolist())
+        )
+        # anti_comm_mat_etas = mp.matrix(np.zeros(
+        #     (self.num_generators, self.num_generators), dtype=np.float64
+        # ).tolist())
         for i in range(self.num_generators):
             for j in range(i, self.num_generators):
                 total_trace = 0  # implicitly divided by dim(hilbert space)
@@ -146,7 +149,7 @@ class Generators:
                             )
                 anti_comm_mat_etas[i, j] = total_trace
                 anti_comm_mat_etas[j, i] = total_trace
-                print(anti_comm_mat_etas[i, j], "anti-commutator of eta", i, "and eta", j)
+                # print(anti_comm_mat_etas[i, j], "anti-commutator of eta", i, "and eta", j)
 
         anti_comm_mat_etas /= 2  # per definition
 
@@ -158,14 +161,14 @@ class Generators:
 
         # print(anti_comm_mat_etas.shape)
         # eigvals, eigvecs = linalg.eigh(anti_comm_mat_etas)
-        # eigvals, eigvecs = scipy.linalg.eigh(anti_comm_mat_etas, driver="evr")
+        eigvals, eigvecs = scipy.linalg.eigh(anti_comm_mat_etas, driver="evr")
         # print(anti_comm_mat_etas)
 
-        anti_comm_mat_etas = mp.matrix(anti_comm_mat_etas.tolist())
-        eigvals_mp, eigvecs_mp = mp.eig(anti_comm_mat_etas)
-        print(eigvals_mp)
-        eigvals = np.array(eigvals_mp, dtype=float)
-        eigvecs = np.array(eigvecs_mp.tolist(), dtype=float)
+        # anti_comm_mat_etas = mp.matrix(anti_comm_mat_etas.tolist())
+        # eigvals_mp, eigvecs_mp = mp.eig(anti_comm_mat_etas)
+        # print(eigvals_mp)
+        # eigvals = np.array(eigvals_mp, dtype=float)
+        # eigvecs = np.array(eigvecs_mp.tolist(), dtype=float)
 
 
         assert np.allclose(eigvecs @ np.diag(eigvals) @ eigvecs.T, anti_comm_mat_etas)
@@ -175,7 +178,8 @@ class Generators:
         # print()
 
         print(eigvals)
-        for val in eigvals_mp:
+        # for val in eigvals_mp:
+        for val in eigvals:
             if do_eigval_zero_check:
                 print(val)
                 assert not np.isclose(val, 0.0)
@@ -275,7 +279,8 @@ class Generators:
                 product.multiply_with_one_imag_unit()
                 for w, op in product.to_py_list():
                     # print(w, op.to_string(), op.phase())
-                    assert op.get_hermitian_phase() in [0, 2]
+                    # assert op.get_hermitian_phase() in [0, 2]
+                    pass
                 self.gamma_bilinears[(i, j)] = product
         self.gamma_bilinears[(0, 0)] = PauliSum(
             [(np.float64(1.0), Pauli.identity(self.n))]

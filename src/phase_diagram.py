@@ -74,19 +74,20 @@ def get_gap(lm_eigenvalues: list[float]) -> float:
     return gap
 
 
-def triangle_grid(n, factor=3):
+def triangle_grid(num_samples: int, factor: float = 3) -> NDArray:
     points = []
-    for i in range(n + 1):
-        for j in range(n + 1 - i):
-            k = n - i - j
-            alpha = i / n
-            beta = j / n
-            gamma = k / n
+    for i in range(num_samples + 1):
+        for j in range(num_samples + 1 - i):
+            k = num_samples - i - j
+            alpha = i / num_samples
+            beta = j / num_samples
+            gamma = k / num_samples
             points.append([alpha, beta, gamma])
     return np.array(points) * factor
 
-def triangle_grid_inner(n, factor=3):
-    points = triangle_grid(n, factor)
+
+def triangle_grid_inner(num_samples, factor=3):
+    points = triangle_grid(num_samples, factor)
     to_remove = []
     for i, point in enumerate(points):
         if point[0] == 0 or point[1] == 0 or point[2] == 0:
@@ -94,7 +95,7 @@ def triangle_grid_inner(n, factor=3):
     return np.delete(points, to_remove, axis=0)
 
 
-def points_to_plot_coordinates(points):
+def points_to_plot_coordinates(points: NDArray) -> tuple[NDArray, NDArray]:
     a = np.array([0.0, 0.0])
     b = np.array([1.0, 0.0])
     c = np.array([0.5, np.sqrt(3) / 2])
