@@ -10,8 +10,9 @@ import paulis
 class Generators:
     def __init__(
         self,
-        simplicial_mode: Pauli,
+        simplicial_mode: tuple[np.float64 | float, Pauli],
         hamiltonian: Hamiltonian,
+        renormalise: bool = False,
         eta_normalisation_factor: np.float64 = np.float64(1.0),
         orthogonal_tolerance: float = 1e-10,
         max_search: int | None = None,
@@ -35,11 +36,20 @@ class Generators:
         even with normalisation one has to be careful and it is probably best to always
         print the norms in the Gram-Schmidt process and check that it looks sensible
         """
-        self.n = simplicial_mode.n()
-        self.etas: list[PauliSum] = [PauliSum([(np.float64(1.0), simplicial_mode)])]
-        self.eta_vectors = [np.array([1.0])]
-        self.eta_vector_to_pauli_map = [simplicial_mode]
-        self.eta_normalisation_factors = [eta_normalisation_factor]
+        self.n = simplicial_mode[1].n()
+        self.eta_vector_to_pauli_map = [simplicial_mode[1]]
+        if renormalise:
+            self.etas: list[PauliSum] = [
+                PauliSum([(np.float64(1.0), simplicial_mode[1])])
+            ]
+            self.eta_vectors = [np.array([1.0])]
+            self.eta_normalisation_factors = [1.0 / simplicial_mode[0]]
+        else:
+            self.etas: list[PauliSum] = [
+                PauliSum([(np.float64(simplicial_mode[0]), simplicial_mode[1])])
+            ]
+            self.eta_vectors = [np.array([simplicial_mode[0]])]
+            self.eta_normalisation_factors = [1.0]
 
         index = 0
         stop_signal = lambda index: max_search is not None and index == max_search
@@ -62,7 +72,6 @@ class Generators:
                     if ham_op.symplectic_inner_product(op) == 1:
                         # cf. paper definition (the 1/2 cancels since we get the product
                         # twice from the commutator)
-                        # comm_weight = weight * ham_weight / hamiltonian.pauli_l2_norm
                         comm_weight = weight * ham_weight * eta_normalisation_factor
                         comm_op = ham_op.multiply_as_paulis(op)
                         # we give them an extra i to make them hermitian
@@ -102,13 +111,30 @@ class Generators:
                 print(f"Stopped after reaching max_search index of {max_search}")
                 break
             else:
-                eta.remove_zero_weights()
-                self.etas.append(eta)
-                self.eta_vectors.append(vector)
-                self.eta_normalisation_factors.append(
-                    self.eta_normalisation_factors[-1] * eta_normalisation_factor
-                )
                 index += 1
+                eta.remove_zero_weights()
+                if renormalise:
+                    norm = 0
+                    num_ops = 0
+                    for weight, _ in eta.to_py_list():
+                        num_ops += 1
+                        norm += weight**2
+                    norm = np.sqrt(norm) / num_ops
+                    eta.multiply_with_float(1.0 / norm)
+                    vector = vector / norm
+                    self.etas.append(eta)
+                    self.eta_vectors.append(vector)
+                    self.eta_normalisation_factors.append(
+                        self.eta_normalisation_factors[-1]
+                        * eta_normalisation_factor
+                        / norm
+                    )
+                else:
+                    self.etas.append(eta)
+                    self.eta_vectors.append(vector)
+                    self.eta_normalisation_factors.append(
+                        self.eta_normalisation_factors[-1] * eta_normalisation_factor
+                    )
 
         # total_num_op_in_etas = sum(eta.len() for eta in self.etas)
         # assert total_num_op_in_etas + total_num_zero_weight_deletions >= len(
@@ -128,6 +154,7 @@ class Generators:
         """
 
         import mpmath as mp
+
         mp.mp.dps = 500
 
         anti_comm_mat_etas = np.zeros(
@@ -170,7 +197,6 @@ class Generators:
         # eigvals = np.array(eigvals_mp, dtype=float)
         # eigvecs = np.array(eigvecs_mp.tolist(), dtype=float)
 
-
         assert np.allclose(eigvecs @ np.diag(eigvals) @ eigvecs.T, anti_comm_mat_etas)
 
         # print()
@@ -187,7 +213,6 @@ class Generators:
 
         self.gamma_d = eigvals * scale
         self.gamma_u = eigvecs.T
-
 
         # self.gammas: list[list[tuple[np.float64, Pauli]]] = []
         self.gammas: list[PauliSum] = []
@@ -226,7 +251,10 @@ class Generators:
                             if prod.is_proportional_to(Pauli.identity(op_i.n())):
                                 assert prod.phase() in [0, 2]
                                 total_trace += (
-                                    2 * weight_i * weight_j * (-1) ** (prod.phase() // 2)
+                                    2
+                                    * weight_i
+                                    * weight_j
+                                    * (-1) ** (prod.phase() // 2)
                                 )
                     if i == j:
                         print(total_trace, "should be 2")

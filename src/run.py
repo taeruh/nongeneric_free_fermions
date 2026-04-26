@@ -60,8 +60,9 @@ def calc_gap(num_triangles, alpha, beta, gamma, extend: bool) -> float:
     )
 
     generators = Generators(
-        simplicial_mode,
+        (1., simplicial_mode),
         fendley.hamiltonian,
+        renormalise=True,
         eta_normalisation_factor=eta_normalisation_factor,
         max_search=expected_rank - 1,
     )
@@ -131,14 +132,14 @@ def calc_gap_wrapper(args):
 def get_phase_diagram():
     from multiprocessing import Pool
 
-    low_num_triangles = 1
+    low_num_triangles = 5
     up_num_triangles = 6
     num_samples = 15
     factor = 3
     points = phase_diagram.triangle_grid(num_samples, factor)
 
-    # do_calculation = True
-    do_calculation = False
+    do_calculation = True
+    # do_calculation = False
 
     if do_calculation == True:
         all_values = []
@@ -147,11 +148,11 @@ def get_phase_diagram():
             for alpha, beta, gamma in points:
                 tpoints.append((num_triangles, alpha, beta, gamma))
             # points = phase_diagram.triangle_grid_inner(8, factor)
-            # values = [calc_gap_wrapper(point) for point in tpoints]
+            values = [calc_gap_wrapper(point) for point in tpoints]
             # TODO: there is quite some multiprocessing overhead...; it probably would be
             # better if I parallelise externally with multiple jobs...
-            with Pool() as pool:
-                values = pool.map(calc_gap_wrapper, tpoints)
+            # with Pool() as pool:
+            #     values = pool.map(calc_gap_wrapper, tpoints)
             all_values.append(values)
         with open("output/raw_phase_diagram_data.json", "w") as f:
             json.dump(all_values, f)
