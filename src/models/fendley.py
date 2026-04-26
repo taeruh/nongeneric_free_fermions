@@ -48,13 +48,9 @@ class Fendley:
             #                IXZZI
             "IIIYZ": (Pauli.from_indices(self.n, [0, 1], [1], 3), 2),
             "IZZZZ": (Pauli.from_indices(self.n, [0, 1, 2, 3], [], 0), 2),
-            # } { connect to IIXZZ,
-            #                XZZII
-            "IIXXI": (Pauli.from_indices(self.n, [], [1, 2], 0), 2),
-            "IZYZI": (Pauli.from_indices(self.n, [1, 2, 3], [2], 3), 2),
             # } { connect to IIXZZ, IXZZI, XZZII
-            "ZZZZZ": (Pauli.from_indices(self.n, [0, 1, 2, 3, 4], [], 0), 3),
             "IIYII": (Pauli.from_indices(self.n, [2], [2], 3), 3),
+            "ZZZZZ": (Pauli.from_indices(self.n, [0, 1, 2, 3, 4], [], 0), 3),
             # }
         }
 

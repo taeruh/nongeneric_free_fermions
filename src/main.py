@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
 import os
-import run
+from run import run, num_claws
 
 def main():
     os.makedirs("output", exist_ok=True)
+
+    num_claws.run()
     # run.run()
-    run.get_phase_diagram()
+    # run.get_phase_diagram()
     # run.test_t()
     # run.currents_plot()
     # run.trying_to_reconstruct_fukai_from_bilinears()
