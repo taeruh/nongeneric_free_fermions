@@ -1,14 +1,9 @@
 import os
 import json
 import numpy as np
-from sage.all import Graph
 from sage.all import graphs  # pyright: ignore  (this is sage.graphs ...)
-from sage.graphs.independent_sets import IndependentSets
 import matplotlib.pyplot as plt
-import matplotlib.tri as tri
 
-from rust_backend.paulis import Pauli, PauliSum
-from hamiltonian import Hamiltonian
 from models.fendley import Fendley
 from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
@@ -27,12 +22,13 @@ def run():
     currents_alpha = ConstantWeight(np.float64(1))
     simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
 
-    load_data = False
-    # load_data = True
+    # load_data = False
+    load_data = True
 
     os.makedirs("output/currents", exist_ok=True)
     file_identifier = (
-        f"{alpha}_{beta}_{gamma}_{currents_alpha}_{"-".join(simplicial_mode_choices)}"
+        f"num_claws_{alpha}_{beta}_{gamma}_{currents_alpha}"
+        + "-".join(simplicial_mode_choices)
     )
     data_file = f"output/currents/data_{file_identifier}.json"
     plot_file = f"output/currents/plot_{file_identifier}.pdf"
@@ -57,7 +53,6 @@ def run():
                 max_search=expected_rank - 1,
             )
 
-            num_vertices = []
             num_claws = []  # up to permutation
             for num_triangles in range(low_num_triangles, up_num_triangles + 1):
                 expected_rank = 2 * num_triangles + 1
@@ -86,19 +81,20 @@ def run():
                     )
                     if generators.num_generators != expected_rank:
                         with open(
-                            "output/currents/intermediate_"
-                            + f"{num_triangles}_{file_identifier}_{simplicial_mode_choice}.json"
+                            f"output/currents/intermediate_{simplicial_mode_choice}"
+                            + f"_{num_triangles}_{file_identifier}.json"
                             "w"
                         ) as f:
                             json.dump(
                                 {
                                     "num_claws": num_claws,
+                                    "all_num_claws": all_num_claws,
                                 },
                                 f,
                             )
                         raise ValueError(
-                            f"Unexpected number of generators: {generators.num_generators} ",
-                            f"(expected {expected_rank})",
+                            f"Unexpected number of generators: ",
+                            f"{generators.num_generators} (expected {expected_rank})",
                         )
                 generators.init_eta_currents()
                 fendley.extend_with_currents(
@@ -144,9 +140,7 @@ def run():
     gs = fig.add_gridspec(num_axes, 1)
     axes = []
     x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
-    for i, (y, label) in enumerate(
-        zip(all_num_claws, simplicial_mode_choices)
-    ):
+    for i, (y, label) in enumerate(zip(all_num_claws, simplicial_mode_choices)):
         ax = fig.add_subplot(gs[i, 0])
         axes.append(ax)
         ax.plot(x, y)

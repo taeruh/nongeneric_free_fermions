@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 import os
-from run import run, num_claws
+from run import run, num_claws, num_vertices
 
 def main():
     os.makedirs("output", exist_ok=True)
 
-    num_claws.run()
+    # num_claws.run()
+    num_vertices.run()
     # run.run()
     # run.get_phase_diagram()
     # run.test_t()
