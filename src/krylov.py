@@ -349,7 +349,7 @@ class Generators:
             current.remove_zero_weights()
             # make them hermitian:
             current.multiply_with_one_imag_unit()
-            for i, (_, op) in enumerate(current.to_py_list()):
+            for _, op in current.to_py_list():
                 assert op.get_hermitian_phase() in [0, 2]
             self.eta_currents.append(current)
 
@@ -389,13 +389,15 @@ class GramSchmidtProcess:
     def __init__(self, first_vector: np.ndarray, tolerance: float = 1e-10):
         norm = linalg.norm(first_vector)
         assert norm > 0.0
-        self.basis = np.array([first_vector / norm], dtype=complex).T
+        # we always make sure everything is hermitian with real weights, so real values
+        # are fine here
+        self.basis = np.array([first_vector / norm], dtype=np.float128).T
         self.tolerance = tolerance
         self.norms = [norm]
 
     def append_zeros(self):
         self.basis = np.vstack(
-            [self.basis, np.zeros((1, self.basis.shape[1]), dtype=complex)]
+            [self.basis, np.zeros((1, self.basis.shape[1]), dtype=np.float128)]
         )
 
     def add_vector(self, vector: np.ndarray) -> bool:
