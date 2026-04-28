@@ -67,12 +67,6 @@ impl Pauli {
     /// the phase when writing the pauli as X/Y/Z string
     pub fn get_hermitian_phase(&self) -> u8 {
         let mut phase = self.phase;
-        // for i in 0..self.n {
-        //     if self.u[i] && self.l[i] {
-        //         // multiply by 1 = i * -i and take i into the phase and make ZX to Y
-        //         phase = (phase + 1) % 4;
-        //     }
-        // }
         let ul = self.u.clone() & &self.l;
         phase = (phase + (ul.count_ones() % 4) as u8) % 4;
         phase
@@ -128,11 +122,6 @@ impl Pauli {
 
     pub fn symplectic_inner_product(&self, other: &Self) -> bool {
         debug_assert!(self.n == other.n);
-        // let mut ip = false;
-        // for i in 0..self.n {
-        //     ip ^= (self.l[i] && other.u[i]) ^ (self.u[i] && other.l[i]);
-        // }
-        // ip
         let lu = self.l.clone() & &other.u;
         let ul = self.u.clone() & &other.l;
         (ul.count_ones() + lu.count_ones()) % 2 == 1
@@ -143,12 +132,7 @@ impl Pauli {
         let new_l = self.l.clone() ^ &other.l;
         let new_u = self.u.clone() ^ &other.u;
         let mut new_phase = (self.phase + other.phase) % 4;
-        // for i in 0..self.n {
-        //     if self.l[i] && other.u[i] {
-        //         new_phase = (new_phase + 2) % 4;
-        //     }
-        // }
-        let lu = self.u.clone() & &other.l;
+        let lu = self.l.clone() & &other.u;
         if lu.count_ones() % 2 == 1 {
             new_phase = (new_phase + 2) % 4;
         }
