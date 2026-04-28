@@ -143,7 +143,7 @@ class GramSchmidtProcess:
 
     def add_vector(self, vector: list[int]) -> bool:
         assert len(vector) == self.basis.shape[0]
-        projection = self.basis @ (self.basis.conj().T @ vector)
+        projection = self.basis @ (self.basis.T @ vector)
         orthogonal_component = vector - projection
         norm = np.linalg.norm(orthogonal_component)
         # TODO: print this here into some file which one should always check for sensible

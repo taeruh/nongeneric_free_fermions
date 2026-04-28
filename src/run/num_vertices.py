@@ -24,7 +24,7 @@ from paulis import Pauli
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 10
+    up_num_triangles = 7
 
     # weight = 1
     # seed = 3
@@ -72,9 +72,16 @@ def run():
                 expected_rank = 2 * num_triangles + 1
                 print(f"Processing num_triangles={num_triangles}...")
                 fendley = Fendley(num_triangles, alpha, beta, gamma)
+                integer_fendley = IntegerFendley(
+                    num_triangles, int(alpha()), int(beta()), int(gamma())
+                )
                 simplicial_mode, mode_neighbours = fendley.example_simplicial_modes[
                     simplicial_mode_choice
                 ]
+                int_simplicial_mode, _ = integer_fendley.example_simplicial_modes[
+                    simplicial_mode_choice
+                ]
+                int_simplicial_mode = (1, int_simplicial_mode)
                 simplicial_mode = (1.0, simplicial_mode)
                 if mode_neighbours == 3:
                     # in this case it is one generator less, probably, since the graph,
@@ -117,12 +124,27 @@ def run():
                 print("got currents")
                 fendley.extend_with_currents(
                     generators.eta_currents,
-                    [currents_alpha() for _ in generators.eta_currents],
+                    [
+                        np.float64(1.0) / generators.eta_normalisation_factors[l]
+                        for l in range(len(generators.eta_currents))
+                    ],
                 )
                 print("extended with currents")
                 graph = fendley.hamiltonian.get_frustration_graph()
                 print("got graph")
-                num_vertices.append(graph.num_verts())
+                num_verts = graph.num_verts()
+                if num_triangles < 6:
+                    int_generators = IntegerGenerators(
+                        int_simplicial_mode, integer_fendley.hamiltonian
+                    )
+                    int_generators.init_eta_currents()
+                    integer_fendley.extend_with_currents(
+                        int_generators.eta_currents,
+                        [1 for _ in int_generators.eta_currents],
+                    )
+                    int_graph = integer_fendley.hamiltonian.get_frustration_graph()
+                    assert int_graph.num_verts() == num_verts
+                num_vertices.append(num_verts)
                 print(f"num_vertices={num_vertices[-1]}")
             all_num_vertices.append(num_vertices)
         with open(data_file, "w") as f:
@@ -138,26 +160,29 @@ def run():
     gs = fig.add_gridspec(num_axes, 1)
     axes = []
     # fitting_functions = [p2, p3, p4, p5, p6, p7, p8, p9, p10, exp_2, exp]
-    fitting_functions = [p7, p8, p9, exp]
+    fitting_functions = [p, exp]
     colormap = plt.get_cmap("plasma")
     colors = [
         colormap(i / len(fitting_functions)) for i in range(len(fitting_functions))
     ]
     x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
     for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
+        xcut= x[0:]
+        ycut = y[0:]
         ax = fig.add_subplot(gs[i, 0])
         axes.append(ax)
-        ax.plot(x, y, label="data", color="black")
+        ax.plot(xcut, ycut, label="data", color="black")
         ax.set_ylabel(f"Number of vertices with {label} simplicial mode")
-        ax.set_xticks(x)
-        ax.set_yscale("log")
+        ax.set_xticks(xcut)
+        # ax.set_yscale("log")
 
         for i, fn in enumerate(fitting_functions):
             try:
-                popt, _ = optimize.curve_fit(fn, x, y)
+                popt, _ = optimize.curve_fit(fn, xcut, ycut)
+                print(popt)
                 ax.plot(
-                    x,
-                    fn(np.array(x), *popt),
+                    xcut,
+                    fn(np.array(xcut), *popt),
                     label=f"{fn.__name__} fit",
                     linestyle="dashed",
                     color=colors[i],
@@ -176,6 +201,35 @@ def run():
     # plt.tight_layout()
     plt.subplots_adjust(top=0.95, bottom=0.06, left=0.08, right=0.95)
     plt.savefig(plot_file)
+
+
+def p(
+    x,
+    # a,
+    # b,
+    # c,
+    # d,
+    # e,
+    # f,
+    # g,
+    # h,
+    i,
+    j,
+    k,
+):
+    return (
+        # a * x**2
+        # + b * x**3
+        # + c * x**4
+        # + d * x**5
+        # + e * x**6
+        # + f * x**7
+        # + g * x**8
+        # + h * x**9
+        + i * x**10
+        + j * x**11
+        + k * x**12
+    )
 
 
 def p2(x, a, b):

@@ -68,7 +68,8 @@ class Generators:
         # zero-weight deletions in each eta is quite high, which is probably the magic due
         # to the fact that we are simplicial and claw-free
         total_num_zero_weight_deletions = 0
-        self.gram_schmidt_process = GramSchmidtProcess(
+        # self.gram_schmidt_process = GramSchmidtProcess(
+        self.gram_schmidt_process = MpmathGramSchmidtProcess(
             self.eta_vectors[0], tolerance=orthogonal_tolerance
         )
         self.gram_schmidt_terminated = False
@@ -109,7 +110,7 @@ class Generators:
                         # efficient in single_add, as we know that it cannot be in eta
                         eta.single_add(comm_weight, comm_op)
 
-            current_rank = self.gram_schmidt_process.basis.shape[1]
+            current_rank = self.gram_schmidt_process.num_vectors()
             assert current_rank == index + 1
             if not self.gram_schmidt_process.add_vector(vector):
                 # TODO: see the todo below in GramSchmidtProcess.add_vector,
@@ -133,8 +134,8 @@ class Generators:
                     norm = np.sqrt(norm) / num_ops
                     eta.multiply_with_float(1.0 / norm)
                     vector = vector / norm
-                    self.eta_renormalisation_factor.append(
-                        self.eta_renormalisation_factor[-1] / norm
+                    self.eta_renormalisation_factor.append(  # pyright: ignore
+                        self.eta_renormalisation_factor[-1] / norm  # pyright: ignore
                     )
                 self.etas.append(eta)
                 self.eta_vectors.append(vector)
@@ -350,7 +351,7 @@ class Generators:
                 prod = self.etas[k].multiply(self.etas[l_k])
                 prod_inv = self.etas[l_k].multiply(self.etas[k])
                 if self.eta_renormalisation_factor is not None:
-                    factor = 1. / (
+                    factor = 1.0 / (
                         self.eta_renormalisation_factor[k]
                         * self.eta_renormalisation_factor[l_k]
                     )
@@ -400,6 +401,59 @@ class Generators:
         return ret
 
 
+import mpmath as mp
+mp.mp.dps = 100
+
+
+# way slower with high dps, but high dps allows us to keep the residual norm more stable
+class MpmathGramSchmidtProcess:
+    def __init__(self, first_vector: np.ndarray, tolerance: float = 1e-10):
+        norm = linalg.norm(first_vector)
+        assert norm > 0.0
+        # we always make sure everything is hermitian with real weights, so real values
+        # are fine here
+        # self.basis = np.array([first_vector / norm], dtype=np.float128).T
+        self.basis = mp.matrix(first_vector / norm).T
+        self.tolerance = tolerance
+        self.norms = [norm]
+
+    def num_vectors(self) -> int:
+        return self.basis.cols
+
+    def append_zeros(self):
+        new_basis = mp.matrix(self.basis.rows + 1, self.basis.cols)
+        for i in range(self.basis.rows):
+            for j in range(self.basis.cols):
+                new_basis[i, j] = self.basis[i, j]
+        for j in range(self.basis.cols):
+            new_basis[self.basis.rows, j] = 0.0
+        self.basis = new_basis
+        # )
+
+    def add_vector(self, vector: np.ndarray) -> bool:
+        assert len(vector) == self.basis.rows
+        vector = mp.matrix(vector)  # pyright: ignore
+        projection = self.basis * (self.basis.T * vector)
+        orthogonal_component = vector - projection
+        norm = mp.norm(orthogonal_component)
+        # TODO: print this here into some file which one should always check for sensible
+        # values
+        self.norms.append(norm)
+        print(f"Gram-Schmidt: norm of orthogonal component is {norm}")
+        if norm > self.tolerance:
+            new_basis_vector = orthogonal_component / norm
+            new_basis = mp.matrix(self.basis.rows, self.basis.cols + 1)
+            for i in range(self.basis.rows):
+                for j in range(self.basis.cols):
+                    new_basis[i, j] = self.basis[i, j]
+            for i in range(self.basis.rows):
+                new_basis[i, self.basis.cols] = new_basis_vector[i, 0]
+            self.basis = new_basis
+            return True
+        else:
+            return False
+
+
 class GramSchmidtProcess:
     def __init__(self, first_vector: np.ndarray, tolerance: float = 1e-10):
         norm = linalg.norm(first_vector)
@@ -409,6 +463,9 @@ class GramSchmidtProcess:
         self.basis = np.array([first_vector / norm], dtype=np.float128).T
         self.tolerance = tolerance
         self.norms = [norm]
+
+    def num_vectors(self) -> int:
+        return self.basis.shape[1]
 
     def append_zeros(self):
         self.basis = np.vstack(
