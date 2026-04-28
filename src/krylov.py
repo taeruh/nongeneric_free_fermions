@@ -17,11 +17,21 @@ class Generators:
         orthogonal_tolerance: float = 1e-10,
         max_search: int | None = None,
     ):
+        # TODO: check that we undo the renormalisation when required (cf. below in
+        # """...""" (e.g., when caculating the currents); in general it probably has to be
+        # undone whenever we have a some of etas (or products of etas) with weights that
+        # are fixed by some definition
         """
         The hamiltonian is assumed to be simplicial and claw-free, and the simplicial mode
         is assumed to be a simplicial mode of the hamiltonian (it probably still runs fine
         if not, however, the results might be unexpected and it may take forever).
 
+        `renormalise` might help against some numerical issues, however, note that this
+        causes a non-constant renormalisation (while eta_normalisation_factor is constant
+        in the sense that eta_k is normalised with eta_normalisation_factor^k); this
+        normalisation must be undone occasionally, e.g., when calculating the currents
+        (eta_normalisation_factor is fine, as it just causes current_l to be renormalised
+        with eta_normalisation_factor^l, which can be captured in the currents_alpha).
 
         a potentially good choice for the eta_normalisation_factor is
         len(hamiltonian.operators) / hamiltonian.pauli_l1_norm / (np.sqrt(np.sqrt(2.7)))
@@ -43,13 +53,14 @@ class Generators:
                 PauliSum([(np.float64(1.0), simplicial_mode[1])])
             ]
             self.eta_vectors = [np.array([1.0])]
-            self.eta_normalisation_factors = [1.0 / simplicial_mode[0]]
+            self.eta_renormalisation_factor = [1.0 / simplicial_mode[0]]
         else:
             self.etas: list[PauliSum] = [
                 PauliSum([(np.float64(simplicial_mode[0]), simplicial_mode[1])])
             ]
             self.eta_vectors = [np.array([simplicial_mode[0]])]
-            self.eta_normalisation_factors = [1.0]
+            self.eta_renormalisation_factor = None
+        self.eta_normalisation_factors = [1.0]
 
         index = 0
         stop_signal = lambda index: max_search is not None and index == max_search
@@ -122,19 +133,14 @@ class Generators:
                     norm = np.sqrt(norm) / num_ops
                     eta.multiply_with_float(1.0 / norm)
                     vector = vector / norm
-                    self.etas.append(eta)
-                    self.eta_vectors.append(vector)
-                    self.eta_normalisation_factors.append(
-                        self.eta_normalisation_factors[-1]
-                        * eta_normalisation_factor
-                        / norm
+                    self.eta_renormalisation_factor.append(
+                        self.eta_renormalisation_factor[-1] / norm
                     )
-                else:
-                    self.etas.append(eta)
-                    self.eta_vectors.append(vector)
-                    self.eta_normalisation_factors.append(
-                        self.eta_normalisation_factors[-1] * eta_normalisation_factor
-                    )
+                self.etas.append(eta)
+                self.eta_vectors.append(vector)
+                self.eta_normalisation_factors.append(
+                    self.eta_normalisation_factors[-1] * eta_normalisation_factor
+                )
 
         # total_num_op_in_etas = sum(eta.len() for eta in self.etas)
         # assert total_num_op_in_etas + total_num_zero_weight_deletions >= len(
@@ -327,7 +333,9 @@ class Generators:
         return coeffs
 
     def init_eta_currents(self):
-        """multiplied an "i" in to make them hermitian"""
+        """multiplied an "i" in to make them hermitian; note the the potential
+        `renormalise` of the etas (in __init__) is undone here, so that we get the correct
+        currents"""
         self.eta_currents: list[PauliSum] = []
         for l in range(self.num_generators):
             current = PauliSum([])
@@ -341,6 +349,13 @@ class Generators:
                 # (except for some excpetions, I think ...)
                 prod = self.etas[k].multiply(self.etas[l_k])
                 prod_inv = self.etas[l_k].multiply(self.etas[k])
+                if self.eta_renormalisation_factor is not None:
+                    factor = 1. / (
+                        self.eta_renormalisation_factor[k]
+                        * self.eta_renormalisation_factor[l_k]
+                    )
+                    prod.multiply_with_float(factor)
+                    prod_inv.multiply_with_float(factor)
                 commutator = prod.subtract(prod_inv)
                 if k % 2 == 1:
                     current = current.subtract(commutator)

@@ -6,8 +6,11 @@ from sage.all import graphs  # pyright: ignore  (this is sage.graphs ...)
 import matplotlib.pyplot as plt
 
 from models.fendley import Fendley
+from models.integer_fendley import IntegerFendley
 from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
+from integer_krylov import IntegerGenerators
+from paulis import Pauli
 
 # observations:
 # - while the coefficients in the etas and eta_currents obviously depend on alpha,
@@ -135,7 +138,7 @@ def run():
     gs = fig.add_gridspec(num_axes, 1)
     axes = []
     # fitting_functions = [p2, p3, p4, p5, p6, p7, p8, p9, p10, exp_2, exp]
-    fitting_functions = [p7, p8, p9,  exp]
+    fitting_functions = [p7, p8, p9, exp]
     colormap = plt.get_cmap("plasma")
     colors = [
         colormap(i / len(fitting_functions)) for i in range(len(fitting_functions))
@@ -217,3 +220,171 @@ def exp_2(x, a, b):
 
 def exp(x, a, b):
     return a * np.exp(x) + b
+
+
+def _run():
+    alpha = 1
+    beta = 1
+    gamma = 1
+    current_alpha = 1
+
+    num_triangles = 7
+    mode = "IIZZZ"
+    # mode = "IZZZZ"
+    # mode = "ZZZZZ"
+
+    int_fendley = IntegerFendley(num_triangles, alpha, beta, gamma)
+    int_simplicial_mode = int_fendley.example_simplicial_modes[mode][0]
+    int_generators = IntegerGenerators(
+        (1, int_simplicial_mode), int_fendley.hamiltonian
+    )
+    int_generators.init_eta_currents()
+    int_fendley.extend_with_currents(
+        int_generators.eta_currents,
+        [current_alpha for _ in int_generators.eta_currents],
+    )
+
+    # print(len(generators.etas))
+    for eta in int_generators.etas:
+        # print(len(eta.ops))
+        # print([(w, op.to_string()) for w, op in eta.ops])
+        for i, op1 in enumerate(eta.ops):
+            for op2 in eta.ops[i + 1 :]:
+                assert not op1[1].is_proportional_to(
+                    op2[1]
+                ), "Found proportional operators!"
+
+    fendley = Fendley(
+        num_triangles,
+        ConstantWeight(np.float64(alpha)),
+        ConstantWeight(np.float64(beta)),
+        ConstantWeight(np.float64(gamma)),
+        # ConstantWeight(np.float64(np.sqrt(2))),
+        # ConstantWeight(np.float64(np.pi / 4)),
+        # ConstantWeight(np.float64(1.0)),
+    )
+    simplicial_mode = fendley.example_simplicial_modes[mode][0]
+    eta_normalisation_factor = np.float64(
+        len(fendley.hamiltonian.operators)
+        / fendley.hamiltonian.pauli_l1_norm
+        / (np.sqrt(np.sqrt(2.7)))
+    )
+    # eta_normalisation_factor = 1.0
+    generators = Generators(
+        (1, simplicial_mode),
+        fendley.hamiltonian,
+        orthogonal_tolerance=1e-9,
+        renormalise=True,
+        eta_normalisation_factor=eta_normalisation_factor,
+    )
+    generators.init_eta_currents()
+    fendley.extend_with_currents(
+        generators.eta_currents,
+        [
+            np.float64(1.0 / eta_normalisation_factor**l)
+            for l in range(len(generators.eta_currents))
+        ],
+    )
+
+    # int_eta = int_generators.etas[8]
+
+    # # print(len(generators.etas))
+    # for eta in generators.etas:
+    #     #     print(eta.len())
+    #     #     print([(w, op.to_string()) for w, op in eta.to_py_list()])
+    #     for i, op1 in enumerate(eta.to_py_list()):
+    #         for op2 in eta.to_py_list()[i + 1 :]:
+    #             assert not op1[1].is_proportional_to(
+    #                 op2[1]
+    #             ), "Found proportional operators!"
+
+    # eta = generators.etas[6]
+
+    # # η_6 = 12 χ - 18 a b χ - 25 a c χ - 7 a b d e χ - 8 a b d f χ - 8 a c d f χ - 8 a c e f χ - 9 a c e g χ - a b d e g h χ - a b d e g i χ - a b d f g i χ - a b d f h i χ - a b d f h j χ - a c d f g i χ - a c d f h i χ - a c d f h j χ - a c e f h i χ - a c e f h j χ - a c e g h j χ - a c e g i j χ
+
+    # letter_to_vert_index = {
+    #     "a": 0,
+    #     "b": 1,
+    #     "c": 2,
+    #     "d": 3,
+    #     "e": 4,
+    #     "f": 5,
+    #     "g": 6,
+    #     "h": 7,
+    #     "i": 8,
+    #     "j": 9,
+    # }
+    # alt_ops = []
+    # for factor, word in [
+    #     (12.0, ""),
+    #     (18.0, "a b"),
+    #     (25.0, "a c"),
+    #     (7.0, "a b d e"),
+    #     (8.0, "a b d f"),
+    #     (8.0, "a c d f"),
+    #     (8.0, "a c e f"),
+    #     (9.0, "a c e g"),
+    #     (1.0, "a b d e g h"),
+    #     (1.0, "a b d e g i"),
+    #     (1.0, "a b d f g i"),
+    #     (1.0, "a b d f h i"),
+    #     (1.0, "a b d f h j"),
+    #     (1.0, "a c d f g i"),
+    #     (1.0, "a c d f h i"),
+    #     (1.0, "a c d f h j"),
+    #     (1.0, "a c e f h i"),
+    #     (1.0, "a c e f h j"),
+    #     (1.0, "a c e g h j"),
+    #     (1.0, "a c e g i j"),
+    # ]:
+    #     op = Pauli.identity(fendley.n)
+    #     for letter in word.split():
+    #         vert_index = letter_to_vert_index[letter]
+    #         op = op.multiply_as_paulis(fendley.hamiltonian.operators[vert_index])
+    #     op = op.multiply_as_paulis(simplicial_mode)
+    #     alt_ops.append((factor, op))
+
+    # # for op in eta.to_py_list():
+    # for op in int_eta.ops:
+    #     # for op in alt_ops:
+    #     print(op[0], op[1].to_string())
+
+    # print(len(int_eta.ops))
+    # # print(len(int_generators.etas))
+
+    # print(len(int_generators.etas))
+
+    # for op in int_fendley.hamiltonian.operators:
+    #     print(op.to_string())
+
+    # op = Pauli.identity(fendley.n)
+    # for letter in "a c e g i k".split():
+    #     vert_index = letter_to_vert_index[letter]
+    #     op = op.multiply_as_paulis(fendley.hamiltonian.operators[vert_index])
+
+    print(int_fendley.hamiltonian.get_frustration_graph().num_verts())
+    print(fendley.hamiltonian.get_frustration_graph().num_verts())
+
+    # print(int_fendley.hamiltonian.operators[0].to_string())
+    operators = dict()
+    for op, weight in zip(
+        int_fendley.hamiltonian.operators, int_fendley.hamiltonian.weights
+    ):
+        label, sign = op.to_string().split(", ")
+        weight *= int(sign)
+        operators[label] = weight
+        if abs(weight) < 1e-6:
+            print(label, weight)
+
+    for op, weight in zip(fendley.hamiltonian.operators, fendley.hamiltonian.weights):
+        label, sign = op.to_string().split(", ")
+        sign_weight = weight * int(sign)
+        int_weight = operators.get(label, None)
+        if int_weight is None:
+            # raise ValueError(f"Could not find operator {label} in integer hamiltonian")
+            print(label, sign_weight)
+        else:
+            # if sign_weight != int_weight:
+            if not np.isclose(sign_weight, int_weight, atol=1e-6):
+                print(sign, int(sign), weight)
+                print(f"{label}: {sign_weight} , {int_weight}")

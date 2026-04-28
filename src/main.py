@@ -7,7 +7,7 @@ def main():
     os.makedirs("output", exist_ok=True)
 
     # num_claws.run()
-    num_vertices.run()
+    num_vertices._run()
     # run.run()
     # run.get_phase_diagram()
     # run.test_t()
