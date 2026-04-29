@@ -68,6 +68,7 @@ class Fendley:
         assert len(currents) == len(current_alpha)
         self.current_alpha = current_alpha
 
+
         for alpha, current in zip(current_alpha, currents):
             for w, op in current.to_py_list():
                 already_in = False

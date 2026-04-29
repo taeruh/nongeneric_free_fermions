@@ -5,17 +5,17 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Fendley {
-    num_triangles: usize,
-    cap_m: usize,
-    n: usize,
-    alpha: f64,
-    beta: f64,
-    gamma: f64,
-    ops: Vec<Pauli>,
-    weights: Vec<f64>,
-    hamiltonian: Hamiltonian,
-    example_simplicial_modes: Vec<(Pauli, usize)>,
-    current_alpha: Vec<f64>,
+    pub num_triangles: usize,
+    pub cap_m: usize,
+    pub n: usize,
+    pub alpha: f64,
+    pub beta: f64,
+    pub gamma: f64,
+    pub ops: Vec<Pauli>,
+    pub weights: Vec<f64>,
+    pub hamiltonian: Hamiltonian,
+    pub example_simplicial_modes: Vec<(Pauli, usize)>,
+    pub current_alpha: Vec<f64>,
 }
 
 impl Fendley {
@@ -36,8 +36,8 @@ impl Fendley {
                 if parameter != 0.0 {
                     let op = Pauli::from_indices(
                         n,
-                        &[3 * i + j, 3 * i + (j + 1) % 3],
-                        &[3 * i + (j + 2) % 3],
+                        &[3 * i + j, 3 * i + (j + 1)],
+                        &[3 * i + (j + 2)],
                         0,
                     );
                     ops.push(op);
@@ -81,6 +81,7 @@ impl Fendley {
     pub fn extend_with_currents(&mut self, currents: &[PauliSum], current_alpha: &[f64]) {
         assert_eq!(currents.len(), current_alpha.len());
         self.current_alpha = current_alpha.to_vec();
+
 
         for (alpha, current) in current_alpha.iter().zip(currents.iter()) {
             for (w, op) in &current.0 {

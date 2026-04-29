@@ -1,4 +1,5 @@
 import os
+import time
 import json
 import numpy as np
 from scipy import optimize
@@ -10,7 +11,8 @@ from models.integer_fendley import IntegerFendley
 from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
 from integer_krylov import IntegerGenerators
-from krylov_without_gram_schmidt import GeneratorsWithoutGramSchmidt
+from rust_backend.krylov_without_gram_schmidt import GeneratorsWithoutGramSchmidt
+from rust_backend.fendley import Fendley as RustFendley
 from paulis import Pauli
 
 # observations:
@@ -25,7 +27,7 @@ from paulis import Pauli
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 9
+    up_num_triangles = 11
 
     # weight = 1
     # seed = 3
@@ -37,8 +39,8 @@ def run():
     # simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
     simplicial_mode_choices = ["IIZZZ"]
 
-    load_data = False
-    # load_data = True
+    # load_data = False
+    load_data = True
 
     os.makedirs("output/currents", exist_ok=True)
     file_identifier = (
@@ -60,6 +62,7 @@ def run():
                 expected_rank = 2 * num_triangles + 1
                 print(f"Processing num_triangles={num_triangles}...")
                 fendley = Fendley(num_triangles, alpha, beta, gamma)
+                rust_fendley = RustFendley(num_triangles, alpha(), beta(), gamma())
                 integer_fendley = IntegerFendley(
                     num_triangles, int(alpha()), int(beta()), int(gamma())
                 )
@@ -77,13 +80,11 @@ def run():
                     # TODO: proof that? or is it wrong and I have a bug?
                     expected_rank = expected_rank - 1
 
-                if num_triangles < 8:
-                    fendley_copy = fendley.clone()
-
+                start = time.time()
                 generators_wgs = GeneratorsWithoutGramSchmidt(
                     simplicial_mode,
-                    fendley.hamiltonian,
-                    expected_rank-1,
+                    rust_fendley,
+                    expected_rank - 1,
                     renormalise=True,
                     eta_normalisation_factor=np.float64(
                         len(fendley.hamiltonian.operators)  # pyright: ignore
@@ -91,30 +92,44 @@ def run():
                         / (np.sqrt(np.sqrt(2.7)))
                     ),
                 )
-                print("got generators without gram schmidt")
+                print(
+                    "got generators without gram schmidt in",
+                    time.time() - start,
+                    "seconds",
+                )
+                start = time.time()
                 generators_wgs.init_eta_currents()
-                print("got currents without gram schmidt")
-                fendley.extend_with_currents(
-                    generators_wgs.eta_currents,
+                print(
+                    "got currents without gram schmidt in",
+                    time.time() - start,
+                    "seconds",
+                )
+                eta_normalisation_factors = (
+                    generators_wgs.get_eta_normalisation_factors()
+                )
+                rust_fendley.extend_with_currents(
+                    generators_wgs,
                     [
-                        np.float64(1.0) / generators_wgs.eta_normalisation_factors[l]
-                        for l in range(len(generators_wgs.eta_currents))
+                        np.float64(1.0) / eta_normalisation_factors[l]
+                        for l in range(generators_wgs.num_eta_currents())
                     ],
                 )
-                num_verts_wgs = len(fendley.hamiltonian.operators)
+                print("extended with currents without gram schmidt")
+                num_verts_wgs = rust_fendley.num_operators()
 
                 if num_triangles < 8:
+                    start = time.time()
                     generators = Generators(
                         simplicial_mode,
-                        fendley_copy.hamiltonian,  # pyright: ignore
+                        fendley.hamiltonian,  # pyright: ignore
                         eta_normalisation_factor=np.float64(
-                            len(fendley_copy.hamiltonian.operators)  # pyright: ignore
-                            / fendley_copy.hamiltonian.pauli_l1_norm  # pyright: ignore
+                            len(fendley.hamiltonian.operators)  # pyright: ignore
+                            / fendley.hamiltonian.pauli_l1_norm  # pyright: ignore
                             / (np.sqrt(np.sqrt(2.7)))
                         ),
                         renormalise=True,
                         orthogonal_tolerance=1e-8,
-                        max_search_eta_index=expected_rank-1,
+                        max_search_eta_index=expected_rank - 1,
                     )
                     if not generators.gram_schmidt_terminated:
                         norms = generators.gram_schmidt_process.norms
@@ -126,17 +141,15 @@ def run():
                     if generators.num_generators != expected_rank:
                         generators = Generators(
                             simplicial_mode,
-                            fendley_copy.hamiltonian,  # pyright: ignore
+                            fendley.hamiltonian,  # pyright: ignore
                             eta_normalisation_factor=np.float64(
-                                len(
-                                    fendley_copy.hamiltonian.operators  # pyright: ignore
-                                )
-                                / fendley_copy.hamiltonian.pauli_l1_norm  # pyright: ignore
+                                len(fendley.hamiltonian.operators)  # pyright: ignore
+                                / fendley.hamiltonian.pauli_l1_norm  # pyright: ignore
                                 / (np.sqrt(np.sqrt(2.7)))
                             ),
                             renormalise=True,
                             orthogonal_tolerance=1e-16,
-                            max_search_eta_index=expected_rank-1,
+                            max_search_eta_index=expected_rank - 1,
                         )
                         if generators.num_generators != expected_rank:
                             with open(
@@ -155,10 +168,11 @@ def run():
                                 f"Unexpected number of generators: ",
                                 f"{generators.num_generators} (expected {expected_rank})",
                             )
-                    print("got generators")
+                    print("got generators in", time.time() - start, "seconds")
+                    start = time.time()
                     generators.init_eta_currents()
-                    print("got currents")
-                    fendley_copy.extend_with_currents(  # pyright: ignore
+                    print("got currents in", time.time() - start, "seconds")
+                    fendley.extend_with_currents(  # pyright: ignore
                         generators.eta_currents,
                         [
                             np.float64(1.0) / generators.eta_normalisation_factors[l]
@@ -166,7 +180,7 @@ def run():
                         ],
                     )
                     print("extended with currents")
-                    num_verts = len(fendley_copy.hamiltonian.operators)  # pyright: ignore
+                    num_verts = len(fendley.hamiltonian.operators)  # pyright: ignore
                     if num_triangles < 6:
                         int_generators = IntegerGenerators(
                             int_simplicial_mode, integer_fendley.hamiltonian
@@ -177,7 +191,6 @@ def run():
                             [1 for _ in int_generators.eta_currents],
                         )
                         assert num_verts == len(integer_fendley.hamiltonian.operators)
-                    print(num_verts, num_verts_wgs)
                     assert num_verts == num_verts_wgs
 
                 num_vertices.append(num_verts_wgs)
@@ -203,22 +216,25 @@ def run():
     ]
     x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
     for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
-        xcut = x[0:]
-        ycut = y[0:]
+        xcut = x[0:-1]
+        ycut = y[0:-1]
+        # xcut = x
+        # ycut = y
         ax = fig.add_subplot(gs[i, 0])
         axes.append(ax)
-        ax.plot(xcut, ycut, label="data", color="black")
+        ax.plot(x, y, label="data", color="black")
         ax.set_ylabel(f"Number of vertices with {label} simplicial mode")
-        ax.set_xticks(xcut)
-        # ax.set_yscale("log")
+        ax.set_xticks(x)
+        ax.set_yscale("log")
 
         for i, fn in enumerate(fitting_functions):
             try:
                 popt, _ = optimize.curve_fit(fn, xcut, ycut)
                 print(popt)
+                long_x = np.arange(low_num_triangles, up_num_triangles + 1, 0.1)
                 ax.plot(
-                    xcut,
-                    fn(np.array(xcut), *popt),
+                    long_x,
+                    fn(np.array(long_x), *popt),
                     label=f"{fn.__name__} fit",
                     linestyle="dashed",
                     color=colors[i],
@@ -241,30 +257,30 @@ def run():
 
 def p(
     x,
-    # a,
-    # b,
-    # c,
-    # d,
+    a,
+    b,
+    c,
+    d,
     # e,
     # f,
     # g,
     # h,
-    i,
-    j,
-    k,
+    # i,
+    # j,
+    # k,
 ):
     return (
-        # a * x**2
-        # + b * x**3
-        # + c * x**4
-        # + d * x**5
+        a * x**2
+        + b * x**3
+        + c * x**4
+        + d * x**5
         # + e * x**6
         # + f * x**7
         # + g * x**8
         # + h * x**9
-        +i * x**10
-        + j * x**11
-        + k * x**12
+        # +i * x**10
+        # + j * x**11
+        # + k * x**12
     )
 
 

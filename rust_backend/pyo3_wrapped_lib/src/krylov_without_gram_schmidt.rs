@@ -1,10 +1,7 @@
 use core_lib::krylov_without_gram_schmidt::GeneratorsWithoutGramSchmidt as LibGeneratorsWithoutGramSchmidt;
-use pyo3::{
-    Bound, PyResult, Python,
-    types::{PyModuleMethods, PyType},
-};
+use pyo3::{PyResult, Python, types::PyModuleMethods};
 
-use crate::{Module, hamiltonian::Hamiltonian, paulis::Pauli};
+use crate::{Module, fendley::Fendley, paulis::Pauli};
 
 #[pyo3::pyclass(subclass, from_py_object)]
 #[derive(Clone)]
@@ -15,14 +12,14 @@ impl GeneratorsWithoutGramSchmidt {
     #[new]
     pub fn __new__(
         simplicial_mode: (f64, Pauli),
-        hamiltonian: Hamiltonian,
+        fendley: Fendley,
         max_eta: usize,
         renormalise: bool,
         eta_normalisation_factor: f64,
     ) -> Self {
         Self(LibGeneratorsWithoutGramSchmidt::new(
             (simplicial_mode.0, simplicial_mode.1.0),
-            hamiltonian.0,
+            fendley.0,
             max_eta,
             renormalise,
             eta_normalisation_factor,
@@ -31,6 +28,14 @@ impl GeneratorsWithoutGramSchmidt {
 
     fn init_eta_currents(&mut self) {
         self.0.init_eta_currents();
+    }
+
+    fn num_eta_currents(&self) -> usize {
+        self.0.eta_currents.len()
+    }
+
+    fn get_eta_normalisation_factors(&self) -> Vec<f64> {
+        self.0.eta_normalisation_factors.clone()
     }
 }
 

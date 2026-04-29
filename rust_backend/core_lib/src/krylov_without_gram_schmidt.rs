@@ -1,4 +1,5 @@
 use crate::{
+    fendley::Fendley,
     hamiltonian::Hamiltonian,
     paulis::{Pauli, PauliSum},
 };
@@ -18,7 +19,7 @@ pub struct GeneratorsWithoutGramSchmidt {
 impl GeneratorsWithoutGramSchmidt {
     pub fn new(
         simplicial_mode: (f64, Pauli),
-        hamiltonian: Hamiltonian,
+        fendley: Fendley,
         max_eta: usize,
         renormalise: bool,
         eta_normalisation_factor: f64,
@@ -45,8 +46,11 @@ impl GeneratorsWithoutGramSchmidt {
             let mut eta = PauliSum(vec![]);
             let mut vector = vec![0.0; eta_vector_to_pauli_map.len()];
             for (weight, op) in last_eta.0.iter() {
-                for (ham_weight, ham_op) in
-                    hamiltonian.weights.iter().zip(hamiltonian.operators.iter())
+                for (ham_weight, ham_op) in fendley
+                    .hamiltonian
+                    .weights
+                    .iter()
+                    .zip(fendley.hamiltonian.operators.iter())
                 {
                     if ham_op.symplectic_inner_product(op) {
                         let comm_weight = weight * ham_weight * eta_normalisation_factor;
@@ -68,6 +72,7 @@ impl GeneratorsWithoutGramSchmidt {
                             eta_vector_to_pauli_map.push(comm_op.clone());
                             vector.push(comm_weight);
                         }
+                        eta.single_add(comm_weight, &comm_op);
                     }
                 }
             }
@@ -87,6 +92,7 @@ impl GeneratorsWithoutGramSchmidt {
                 .push(last_eta_normalisation_factor * eta_normalisation_factor);
             println!("calculated eta {}", index + 1);
         }
+
 
         Self {
             num_generators: etas.len(),

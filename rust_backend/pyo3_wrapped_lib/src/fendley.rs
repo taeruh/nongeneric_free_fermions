@@ -10,7 +10,7 @@ use crate::{
 
 #[pyo3::pyclass(subclass, from_py_object)]
 #[derive(Clone)]
-pub struct Fendley(LibFendley);
+pub struct Fendley(pub LibFendley);
 
 #[pyo3::pymethods]
 impl Fendley {
@@ -19,13 +19,18 @@ impl Fendley {
         Self(LibFendley::new(num_triangles, alpha, beta, gamma))
     }
 
-    pub fn extend_with_currents(
+    fn extend_with_currents(
         &mut self,
         generator: &GeneratorsWithoutGramSchmidt,
         current_alpha: Vec<f64>,
     ) {
         let currents = &generator.0.eta_currents;
+        println!("extending with {} currents", currents.len());
         self.0.extend_with_currents(currents, &current_alpha);
+    }
+
+    fn num_operators(&self) -> usize {
+        self.0.ops.len()
     }
 }
 

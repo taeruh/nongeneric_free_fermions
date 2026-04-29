@@ -157,6 +157,7 @@ class Generators:
         #     "zero-weight operators in the (probobly last) etas, which can be removed",
         # )
 
+
         self.num_generators = len(self.etas)
 
     def init_gammas(self, do_checks: bool = True, do_eigval_zero_check: bool = True):
