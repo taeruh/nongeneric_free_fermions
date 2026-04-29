@@ -51,7 +51,7 @@ class IntegerGenerators:
                 for ham_weight, ham_op in zip(
                     hamiltonian.weights, hamiltonian.operators
                 ):
-                    if ham_op.symplectic_inner_product(op) == 1:
+                    if ham_op.symplectic_inner_product(op):
                         # cf. paper definition (the 1/2 cancels since we get the product
                         # twice from the commutator)
                         comm_weight = weight * ham_weight

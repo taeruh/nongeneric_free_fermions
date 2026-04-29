@@ -31,20 +31,6 @@ class IntegerHamiltonian:
         clone_ops = [op.clone() for op in self.operators]
         return IntegerHamiltonian(clone_weights, clone_ops)
 
-    def add_term(self, weight: int, op: IntegerPauli):
-        already_in = False
-        for i, self_op in enumerate(self.operators):
-            if op.is_proportional_to(self_op):
-                phase = op.phase_difference(self_op)
-                assert phase in [0, 2]
-                self.weights[i] += weight * (-1) ** (phase // 2)
-                already_in = True
-                break
-        if not already_in:
-            self.operators.append(op)
-            self.weights.append(weight)
-            self.num_ops += 1
-
     def get_frustration_graph(self) -> Graph:
         """Return the frustration graph with the vertex weights."""
         g = Graph()

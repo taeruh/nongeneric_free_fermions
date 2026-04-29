@@ -10,6 +10,7 @@ from models.integer_fendley import IntegerFendley
 from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
 from integer_krylov import IntegerGenerators
+from krylov_without_gram_schmidt import GeneratorsWithoutGramSchmidt
 from paulis import Pauli
 
 # observations:
@@ -24,7 +25,7 @@ from paulis import Pauli
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 7
+    up_num_triangles = 9
 
     # weight = 1
     # seed = 3
@@ -54,19 +55,6 @@ def run():
     else:
         all_num_vertices = []
         for simplicial_mode_choice in simplicial_mode_choices:
-            get_generators = lambda tolerance: Generators(
-                simplicial_mode,
-                fendley.hamiltonian,
-                eta_normalisation_factor=np.float64(
-                    len(fendley.hamiltonian.operators)
-                    / fendley.hamiltonian.pauli_l1_norm
-                    / (np.sqrt(np.sqrt(2.7)))
-                ),
-                renormalise=True,
-                orthogonal_tolerance=tolerance,
-                max_search=expected_rank - 1,
-            )
-
             num_vertices = []
             for num_triangles in range(low_num_triangles, up_num_triangles + 1):
                 expected_rank = 2 * num_triangles + 1
@@ -88,63 +76,111 @@ def run():
                     # without the simplicial clique
                     # TODO: proof that? or is it wrong and I have a bug?
                     expected_rank = expected_rank - 1
-                generators = get_generators(
-                    1e-12,
+
+                if num_triangles < 8:
+                    fendley_copy = fendley.clone()
+
+                generators_wgs = GeneratorsWithoutGramSchmidt(
+                    simplicial_mode,
+                    fendley.hamiltonian,
+                    expected_rank-1,
+                    renormalise=True,
+                    eta_normalisation_factor=np.float64(
+                        len(fendley.hamiltonian.operators)  # pyright: ignore
+                        / fendley.hamiltonian.pauli_l1_norm  # pyright: ignore
+                        / (np.sqrt(np.sqrt(2.7)))
+                    ),
                 )
-                if not generators.gram_schmidt_terminated:
-                    norms = generators.gram_schmidt_process.norms
-                    average_norm = np.mean(norms)
-                    # assert norms[-1] < norms[-2] * 1e-3
-                    assert norms[-1] < norms[-2]
-                    # assert norms[-1] < average_norm * 1e-3
-                    assert norms[-1] < average_norm
-                if generators.num_generators != expected_rank:
-                    generators = get_generators(
-                        1e-24,
-                    )
-                    if generators.num_generators != expected_rank:
-                        with open(
-                            f"output/currents/intermediate_{simplicial_mode_choice}"
-                            + f"_{num_triangles}_{file_identifier}.json"
-                            "w"
-                        ) as f:
-                            json.dump(
-                                {
-                                    "num_vertices": num_vertices,
-                                    "all_num_vertices": all_num_vertices,
-                                },
-                                f,
-                            )
-                        raise ValueError(
-                            f"Unexpected number of generators: ",
-                            f"{generators.num_generators} (expected {expected_rank})",
-                        )
-                print("got generators")
-                generators.init_eta_currents()
-                print("got currents")
+                print("got generators without gram schmidt")
+                generators_wgs.init_eta_currents()
+                print("got currents without gram schmidt")
                 fendley.extend_with_currents(
-                    generators.eta_currents,
+                    generators_wgs.eta_currents,
                     [
-                        np.float64(1.0) / generators.eta_normalisation_factors[l]
-                        for l in range(len(generators.eta_currents))
+                        np.float64(1.0) / generators_wgs.eta_normalisation_factors[l]
+                        for l in range(len(generators_wgs.eta_currents))
                     ],
                 )
-                print("extended with currents")
-                graph = fendley.hamiltonian.get_frustration_graph()
-                print("got graph")
-                num_verts = graph.num_verts()
-                if num_triangles < 6:
-                    int_generators = IntegerGenerators(
-                        int_simplicial_mode, integer_fendley.hamiltonian
+                num_verts_wgs = len(fendley.hamiltonian.operators)
+
+                if num_triangles < 8:
+                    generators = Generators(
+                        simplicial_mode,
+                        fendley_copy.hamiltonian,  # pyright: ignore
+                        eta_normalisation_factor=np.float64(
+                            len(fendley_copy.hamiltonian.operators)  # pyright: ignore
+                            / fendley_copy.hamiltonian.pauli_l1_norm  # pyright: ignore
+                            / (np.sqrt(np.sqrt(2.7)))
+                        ),
+                        renormalise=True,
+                        orthogonal_tolerance=1e-8,
+                        max_search_eta_index=expected_rank-1,
                     )
-                    int_generators.init_eta_currents()
-                    integer_fendley.extend_with_currents(
-                        int_generators.eta_currents,
-                        [1 for _ in int_generators.eta_currents],
+                    if not generators.gram_schmidt_terminated:
+                        norms = generators.gram_schmidt_process.norms
+                        average_norm = np.mean(norms)
+                        # assert norms[-1] < norms[-2] * 1e-3
+                        assert norms[-1] < norms[-2]
+                        # assert norms[-1] < average_norm * 1e-3
+                        assert norms[-1] < average_norm
+                    if generators.num_generators != expected_rank:
+                        generators = Generators(
+                            simplicial_mode,
+                            fendley_copy.hamiltonian,  # pyright: ignore
+                            eta_normalisation_factor=np.float64(
+                                len(
+                                    fendley_copy.hamiltonian.operators  # pyright: ignore
+                                )
+                                / fendley_copy.hamiltonian.pauli_l1_norm  # pyright: ignore
+                                / (np.sqrt(np.sqrt(2.7)))
+                            ),
+                            renormalise=True,
+                            orthogonal_tolerance=1e-16,
+                            max_search_eta_index=expected_rank-1,
+                        )
+                        if generators.num_generators != expected_rank:
+                            with open(
+                                f"output/currents/intermediate_{simplicial_mode_choice}"
+                                + f"_{num_triangles}_{file_identifier}.json"
+                                "w"
+                            ) as f:
+                                json.dump(
+                                    {
+                                        "num_vertices": num_vertices,
+                                        "all_num_vertices": all_num_vertices,
+                                    },
+                                    f,
+                                )
+                            raise ValueError(
+                                f"Unexpected number of generators: ",
+                                f"{generators.num_generators} (expected {expected_rank})",
+                            )
+                    print("got generators")
+                    generators.init_eta_currents()
+                    print("got currents")
+                    fendley_copy.extend_with_currents(  # pyright: ignore
+                        generators.eta_currents,
+                        [
+                            np.float64(1.0) / generators.eta_normalisation_factors[l]
+                            for l in range(len(generators.eta_currents))
+                        ],
                     )
-                    int_graph = integer_fendley.hamiltonian.get_frustration_graph()
-                    assert int_graph.num_verts() == num_verts
-                num_vertices.append(num_verts)
+                    print("extended with currents")
+                    num_verts = len(fendley_copy.hamiltonian.operators)  # pyright: ignore
+                    if num_triangles < 6:
+                        int_generators = IntegerGenerators(
+                            int_simplicial_mode, integer_fendley.hamiltonian
+                        )
+                        int_generators.init_eta_currents()
+                        integer_fendley.extend_with_currents(
+                            int_generators.eta_currents,
+                            [1 for _ in int_generators.eta_currents],
+                        )
+                        assert num_verts == len(integer_fendley.hamiltonian.operators)
+                    print(num_verts, num_verts_wgs)
+                    assert num_verts == num_verts_wgs
+
+                num_vertices.append(num_verts_wgs)
                 print(f"num_vertices={num_vertices[-1]}")
             all_num_vertices.append(num_vertices)
         with open(data_file, "w") as f:
@@ -167,7 +203,7 @@ def run():
     ]
     x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
     for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
-        xcut= x[0:]
+        xcut = x[0:]
         ycut = y[0:]
         ax = fig.add_subplot(gs[i, 0])
         axes.append(ax)
@@ -226,7 +262,7 @@ def p(
         # + f * x**7
         # + g * x**8
         # + h * x**9
-        + i * x**10
+        +i * x**10
         + j * x**11
         + k * x**12
     )

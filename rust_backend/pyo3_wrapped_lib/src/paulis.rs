@@ -1,4 +1,4 @@
-use lib::paulis::{Pauli as LibPauli, PauliSum as LibPauliSum};
+use core_lib::paulis::{Pauli as LibPauli, PauliSum as LibPauliSum};
 use pyo3::{
     Bound, PyResult, Python,
     types::{PyModuleMethods, PyType},
@@ -8,7 +8,7 @@ use crate::Module;
 
 #[pyo3::pyclass(subclass, from_py_object)]
 #[derive(Clone)]
-pub struct Pauli(LibPauli);
+pub struct Pauli(pub LibPauli);
 
 #[pyo3::pymethods]
 impl Pauli {
@@ -84,7 +84,7 @@ impl Pauli {
 
 #[pyo3::pyclass(subclass, from_py_object)]
 #[derive(Clone)]
-pub struct PauliSum(LibPauliSum);
+pub struct PauliSum(pub LibPauliSum);
 
 #[pyo3::pymethods]
 impl PauliSum {

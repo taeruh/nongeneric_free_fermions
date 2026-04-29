@@ -50,7 +50,7 @@ def run():
                 ),
                 renormalise=True,
                 orthogonal_tolerance=tolerance,
-                max_search=expected_rank - 1,
+                max_search_eta_index=expected_rank-1,
             )
 
             num_claws = []  # up to permutation

@@ -55,7 +55,7 @@ def calc_gap(num_triangles, alpha, beta, gamma, extend: bool) -> float:
         fendley.hamiltonian,
         renormalise=True,
         eta_normalisation_factor=eta_normalisation_factor,
-        max_search=expected_rank - 1,
+        max_search_eta_index=expected_rank - 1,
     )
 
     generators.init_gammas(False, False)

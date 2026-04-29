@@ -15,7 +15,7 @@ class Generators:
         renormalise: bool = False,
         eta_normalisation_factor: np.float64 = np.float64(1.0),
         orthogonal_tolerance: float = 1e-10,
-        max_search: int | None = None,
+        max_search_eta_index: int | None = None,
     ):
         # TODO: check that we undo the renormalisation when required (cf. below in
         # """...""" (e.g., when caculating the currents); in general it probably has to be
@@ -63,14 +63,18 @@ class Generators:
         self.eta_normalisation_factors = [1.0]
 
         index = 0
-        stop_signal = lambda index: max_search is not None and index == max_search
+        stop_signal = (
+            lambda index: max_search_eta_index is not None
+            and index == max_search_eta_index
+        )
         # just used for an assertion, but it is interesting to note that the number of
         # zero-weight deletions in each eta is quite high, which is probably the magic due
         # to the fact that we are simplicial and claw-free
         total_num_zero_weight_deletions = 0
-        # self.gram_schmidt_process = GramSchmidtProcess(
-        self.gram_schmidt_process = MpmathGramSchmidtProcess(
-            self.eta_vectors[0], tolerance=orthogonal_tolerance
+        self.gram_schmidt_process = GramSchmidtProcess(
+            # self.gram_schmidt_process = MpmathGramSchmidtProcess(
+            self.eta_vectors[0],
+            tolerance=orthogonal_tolerance,
         )
         self.gram_schmidt_terminated = False
         while True:
@@ -81,7 +85,7 @@ class Generators:
                 for ham_weight, ham_op in zip(
                     hamiltonian.weights, hamiltonian.operators
                 ):
-                    if ham_op.symplectic_inner_product(op) == 1:
+                    if ham_op.symplectic_inner_product(op):
                         # cf. paper definition (the 1/2 cancels since we get the product
                         # twice from the commutator)
                         comm_weight = weight * ham_weight * eta_normalisation_factor
@@ -120,7 +124,9 @@ class Generators:
             # I don't stop the while loop earlier on the stop_signal because I want to
             # know what the norm of the orthogonal component is at the max_search index,
             elif stop_signal(index):
-                print(f"Stopped after reaching max_search index of {max_search}")
+                print(
+                    f"Stopped after reaching max_search index of {max_search_eta_index}"
+                )
                 break
             else:
                 index += 1
@@ -402,6 +408,7 @@ class Generators:
 
 
 import mpmath as mp
+
 mp.mp.dps = 100
 
 

@@ -7,7 +7,7 @@ edition = "2024"
 crate-type = ["lib"]
 
 [dependencies]
-lib = { path = "../lib" }
+core_lib = { path = "../core_lib" }
 pyo3 = { version = "0.28.2", default-features = false, features = [
   "macros",
   "multiple-pymethods",
