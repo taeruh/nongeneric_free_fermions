@@ -27,7 +27,7 @@ from paulis import Pauli
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 11
+    up_num_triangles = 4
 
     # weight = 1
     # seed = 3
@@ -39,9 +39,9 @@ def run():
     # simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
     simplicial_mode_choices = ["IIZZZ"]
 
-    # do_plot = True
     do_plot = False
     load_data = False
+    # do_plot = True
     # load_data = True
 
     os.makedirs("output/currents", exist_ok=True)
@@ -107,6 +107,13 @@ def run():
                     time.time() - start,
                     "seconds",
                 )
+
+                # for l, current in enumerate(generators_wgs.get_eta_currents()):
+                #     print(f"current {l}:")
+                #     print([(w, op.to_string()) for w, op in current.to_py_list()])
+                #     print()
+                # continue
+
                 eta_normalisation_factors = (
                     generators_wgs.get_eta_normalisation_factors()
                 )

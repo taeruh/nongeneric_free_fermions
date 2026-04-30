@@ -1,7 +1,11 @@
 use core_lib::krylov_without_gram_schmidt::GeneratorsWithoutGramSchmidt as LibGeneratorsWithoutGramSchmidt;
 use pyo3::{PyResult, Python, types::PyModuleMethods};
 
-use crate::{Module, fendley::Fendley, paulis::Pauli};
+use crate::{
+    Module,
+    fendley::Fendley,
+    paulis::{Pauli, PauliSum},
+};
 
 #[pyo3::pyclass(subclass, from_py_object)]
 #[derive(Clone)]
@@ -36,6 +40,10 @@ impl GeneratorsWithoutGramSchmidt {
 
     fn get_eta_normalisation_factors(&self) -> Vec<f64> {
         self.0.eta_normalisation_factors.clone()
+    }
+
+    fn get_eta_currents(&self) -> Vec<PauliSum> {
+        self.0.eta_currents.iter().map(|x| PauliSum(x.clone())).collect()
     }
 }
 
