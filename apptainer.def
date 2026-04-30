@@ -1,0 +1,19 @@
+Bootstrap: docker-daemon
+From: nongeneric_free_fermions:latest
+
+# note that the desitination path should not be /tmp as this one gets mounted
+%files
+rust_backend
+
+%post
+python -m venv .venv --system-site-packages
+source .venv/bin/activate
+ls -al rust_backend
+pip install rust_backend/py_lib
+rm -rf rust_backend
+
+%environment
+# prepend the venv python to the path so that it is used instead of the system python
+export PATH="/.venv/bin:$PATH"
+# this is probably not needed?
+export VIRTUAL_ENV="/.venv"

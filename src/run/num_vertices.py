@@ -39,6 +39,8 @@ def run():
     # simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
     simplicial_mode_choices = ["IIZZZ"]
 
+    # do_plot = True
+    do_plot = False
     load_data = False
     # load_data = True
 
@@ -205,55 +207,56 @@ def run():
                 f,
             )
 
-    num_axes = len(simplicial_mode_choices)
-    fig = plt.figure(figsize=(10, 5 * num_axes))
-    gs = fig.add_gridspec(num_axes, 1)
-    axes = []
-    # fitting_functions = [p2, p3, p4, p5, p6, p7, p8, p9, p10, exp_2, exp]
-    fitting_functions = [p, exp]
-    colormap = plt.get_cmap("plasma")
-    colors = [
-        colormap(i / len(fitting_functions)) for i in range(len(fitting_functions))
-    ]
-    x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
-    for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
-        xcut = x[0:-1]
-        ycut = y[0:-1]
-        # xcut = x
-        # ycut = y
-        ax = fig.add_subplot(gs[i, 0])
-        axes.append(ax)
-        ax.plot(x, y, label="data", color="black")
-        ax.set_ylabel(f"Number of vertices with {label} simplicial mode")
-        ax.set_xticks(x)
-        ax.set_yscale("log")
+    if do_plot:
+        num_axes = len(simplicial_mode_choices)
+        fig = plt.figure(figsize=(10, 5 * num_axes))
+        gs = fig.add_gridspec(num_axes, 1)
+        axes = []
+        # fitting_functions = [p2, p3, p4, p5, p6, p7, p8, p9, p10, exp_2, exp]
+        fitting_functions = [p, exp]
+        colormap = plt.get_cmap("plasma")
+        colors = [
+            colormap(i / len(fitting_functions)) for i in range(len(fitting_functions))
+        ]
+        x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
+        for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
+            xcut = x[0:-1]
+            ycut = y[0:-1]
+            # xcut = x
+            # ycut = y
+            ax = fig.add_subplot(gs[i, 0])
+            axes.append(ax)
+            ax.plot(x, y, label="data", color="black")
+            ax.set_ylabel(f"Number of vertices with {label} simplicial mode")
+            ax.set_xticks(x)
+            ax.set_yscale("log")
 
-        for i, fn in enumerate(fitting_functions):
-            try:
-                popt, _ = optimize.curve_fit(fn, xcut, ycut)
-                print(popt)
-                long_x = np.arange(low_num_triangles, up_num_triangles + 1, 0.1)
-                ax.plot(
-                    long_x,
-                    fn(np.array(long_x), *popt),
-                    label=f"{fn.__name__} fit",
-                    linestyle="dashed",
-                    color=colors[i],
-                )
-            except RuntimeError:
-                print(f"Could not fit {fn.__name__} for {label} simplicial mode")
+            for i, fn in enumerate(fitting_functions):
+                try:
+                    popt, _ = optimize.curve_fit(fn, xcut, ycut)
+                    print(popt)
+                    long_x = np.arange(low_num_triangles, up_num_triangles + 1, 0.1)
+                    ax.plot(
+                        long_x,
+                        fn(np.array(long_x), *popt),
+                        label=f"{fn.__name__} fit",
+                        linestyle="dashed",
+                        color=colors[i],
+                    )
+                except RuntimeError:
+                    print(f"Could not fit {fn.__name__} for {label} simplicial mode")
 
-    ax = axes[0]
-    ax.set_title(file_identifier)
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels)
+        ax = axes[0]
+        ax.set_title(file_identifier)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles, labels)
 
-    ax = axes[num_axes - 1]
-    ax.set_xlabel("Number of triangles")
+        ax = axes[num_axes - 1]
+        ax.set_xlabel("Number of triangles")
 
-    # plt.tight_layout()
-    plt.subplots_adjust(top=0.95, bottom=0.06, left=0.08, right=0.95)
-    plt.savefig(plot_file)
+        # plt.tight_layout()
+        plt.subplots_adjust(top=0.95, bottom=0.06, left=0.08, right=0.95)
+        plt.savefig(plot_file)
 
 
 def p(

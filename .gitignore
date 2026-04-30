@@ -3,3 +3,4 @@ worktrees
 .venv
 output/
 __pycache__/
+*.sif
