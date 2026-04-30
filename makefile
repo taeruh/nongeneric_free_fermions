@@ -19,4 +19,3 @@ send:
 
 receive:
 	$(srs) $(remote)/output/* output
-

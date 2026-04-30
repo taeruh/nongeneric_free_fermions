@@ -36,7 +36,7 @@ apptainer exec apptainer.sif ./${bin}
 # NOTE: `cd ${PBS_O_WORKDIR}; mv ${scratch}/output/* output` doesn't work; it's the wild
 # card that makes problems in this case, but I don't know why (maybe the ${scratch} name
 # is too weird)?
-mv output/* ${PBS_O_WORKDIR}/output/
+rsync -avh output/* ${PBS_O_WORKDIR}/output/
 
 cd ${PBS_O_WORKDIR}
 rm -rf ${scratch}
