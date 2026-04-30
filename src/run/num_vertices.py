@@ -39,13 +39,14 @@ def run():
     # simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
     simplicial_mode_choices = ["IIZZZ"]
 
-    # load_data = False
-    load_data = True
+    load_data = False
+    # load_data = True
 
     os.makedirs("output/currents", exist_ok=True)
     file_identifier = (
         f"num_vertices_{alpha}_{beta}_{gamma}_{currents_alpha}"
         + "-".join(simplicial_mode_choices)
+        + f"_{low_num_triangles}_{up_num_triangles}"
     )
     data_file = f"output/currents/data_{file_identifier}.json"
     plot_file = f"output/currents/plot_{file_identifier}.pdf"

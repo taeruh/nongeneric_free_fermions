@@ -1,6 +1,12 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
+
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 use crate::{
     fendley::Fendley,
-    hamiltonian::Hamiltonian,
     paulis::{Pauli, PauliSum},
 };
 
@@ -93,7 +99,6 @@ impl GeneratorsWithoutGramSchmidt {
             println!("calculated eta {}", index + 1);
         }
 
-
         Self {
             num_generators: etas.len(),
             n,
@@ -107,8 +112,8 @@ impl GeneratorsWithoutGramSchmidt {
     }
 
     pub fn init_eta_currents(&mut self) {
-        self.eta_currents = Vec::new();
-        for l in 0..self.num_generators {
+        let currents = Mutex::new(HashMap::new());
+        (0..self.num_generators).into_par_iter().for_each(|l| {
             let mut current = PauliSum(vec![]);
             for k in 0..l {
                 let l_k = l - k;
@@ -136,7 +141,12 @@ impl GeneratorsWithoutGramSchmidt {
             for (_, op) in current.0.iter() {
                 assert!(op.get_hermitian_phase() == 0 || op.get_hermitian_phase() == 2);
             }
-            self.eta_currents.push(current);
-        }
+            println!("calculated current for eta {l}");
+            currents.lock().unwrap().insert(l, current);
+        });
+        let mut currents = currents.into_inner().unwrap();
+        self.eta_currents = (0..self.num_generators)
+            .map(|l| currents.remove(&l).unwrap())
+            .collect();
     }
 }
