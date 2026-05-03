@@ -14,7 +14,7 @@ from models.fukai import Fukai
 from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
 import house_of_graphs
-import phase_diagram
+import energy
 
 
 def calc_gap(num_triangles, alpha, beta, gamma, extend: bool) -> float:
