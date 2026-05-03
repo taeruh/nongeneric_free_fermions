@@ -3,157 +3,6 @@ import scipy
 from scipy import linalg
 from numpy.typing import NDArray
 from sage.all import Graph
-import math
-
-from typing import Callable, Iterable
-
-CouplingFn = Callable[[float, float, float], float]
-
-
-class PeriodicBBar:
-    """
-    Periodic odd overlined couplings generated from three seed functions:
-      \bar b_1(alpha,beta,gamma),
-      \bar b_3(alpha,beta,gamma),
-      \bar b_5(alpha,beta,gamma),
-    and then repeated with period 3 in m, i.e. in the sequence
-      \bar b_{2m+1},  m = 0,1,2,3,...
-    """
-
-    def __init__(self, f_bbar1: CouplingFn, f_bbar3: CouplingFn, f_bbar5: CouplingFn):
-        self.fns = (f_bbar1, f_bbar3, f_bbar5)
-
-    def __call__(
-        self, odd_index: int, alpha: float, beta: float, gamma: float
-    ) -> float:
-        """
-        Return \bar b_{odd_index} for odd_index = 1,3,5,7,...
-        Uses period 3 in m where odd_index = 2m+1.
-        """
-        if odd_index % 2 != 1:
-            raise ValueError(f"Expected an odd index, got {odd_index}.")
-        m = (odd_index - 1) // 2
-        fn = self.fns[m % 3]
-        return fn(alpha, beta, gamma)
-
-
-def gap_from_coeff(
-    coeff: list[float], imag_tol: float = 1e-4, root_eps: float = 1e-9
-) -> float:
-    """
-    Estimate the lowest positive single-particle energy from the largest positive real root z_max:
-        gap ~ 1 / sqrt(z_max)
-
-    Returns np.nan if no reliable positive real root is found.
-    """
-    arr = np.array(coeff[::-1], dtype=np.complex128)  # descending powers for np.roots
-    roots = np.roots(arr)
-    # print(roots)
-
-    realish = roots[np.abs(roots.imag) < imag_tol]
-    real_pos = realish.real[realish.real > root_eps]
-    if real_pos.size == 0:
-        return np.nan
-
-    zmax = np.max(real_pos)
-    if not np.isfinite(zmax) or zmax <= 0:
-        return np.nan
-
-    return 1.0 / math.sqrt(zmax)
-
-
-def compute_poly_even(
-    M: int,
-    alpha: float,
-    beta: float,
-    gamma: float,
-    bbar: PeriodicBBar,
-    sign: int = +1,
-) -> list[float]:
-    """
-    Compute P_M(z) for even M using the general Hamiltonian-(3.16)-type recursion.
-
-    Coefficients:
-      S_{2m}^2 = b_{2m-1}^2 + b_{2m}^2 + \bar b_{2m+1}^2
-      A_{2m-1}^2 = (b_{2m-3} b_{2m} + sign * b_{2m-2} \bar b_{2m+1})^2
-      C_{2m-2}^2 = (b_{2m-3} \bar b_{2m+3})^2
-    """
-    if M % 2 != 0:
-        raise ValueError(f"M must be even, got {M}.")
-
-    P: dict[int, list[float]] = {-2: [1.0], 0: [1.0]}
-
-    def get(n: int) -> list[float]:
-        if n in P:
-            return P[n]
-        if n < 0:
-            return [0.0]
-        raise KeyError(n)
-
-    for m in range(1, M // 2 + 1):
-        b2m1 = b_orig(2 * m - 1, alpha, beta, gamma)
-        b2m = b_orig(2 * m, alpha, beta, gamma)
-        b2m_2 = b_orig(2 * m - 2, alpha, beta, gamma)
-        b2m_3 = b_orig(2 * m - 3, alpha, beta, gamma)
-
-        bb2m1 = bbar(2 * m + 1, alpha, beta, gamma)
-        bb2m3 = bbar(2 * m + 3, alpha, beta, gamma)
-
-        s2 = b2m1**2 + b2m**2 + bb2m1**2
-        a2 = (b2m_3 * b2m + sign * b2m_2 * bb2m1) ** 2
-        c2 = (b2m_3 * bb2m3) ** 2
-
-        p = get(2 * m - 2)
-        p = poly_add(p, get(2 * m - 4), scale=-s2, shift=1)
-        p = poly_add(p, get(2 * m - 6), scale=a2, shift=2)
-        p = poly_add(p, get(2 * m - 8), scale=-c2, shift=2)
-        P[2 * m] = p
-
-    return P[M]
-
-
-def poly_add(
-    p: list[float], q: list[float], scale: float = 1.0, shift: int = 0
-) -> list[float]:
-    """
-    Add scale * z^shift * q(z) to p(z), with coefficient lists in ascending powers.
-    """
-    res = p.copy()
-    need = len(q) + shift
-    if len(res) < need:
-        res.extend([0.0] * (need - len(res)))
-    for i, c in enumerate(q):
-        res[i + shift] += scale * c
-    return res
-
-
-def b_orig(n: int, alpha: float, beta: float, gamma: float) -> float:
-    """
-    3-periodic FFD coupling:
-      b_{3m+1}=alpha, b_{3m+2}=beta, b_{3m}=gamma
-    """
-    r = n % 3
-    return alpha if r == 1 else beta if r == 2 else gamma
-
-
-class SamsCalculation:
-
-    def __init__(
-        self,
-        M: int,
-        alpha: float,
-        beta: float,
-        gamma: float,
-        sign: int = +1,
-        imag_tol: float = 1e-4,
-        root_eps: float = 1e-9,
-    ):
-
-        bbar_fn = lambda alpha, beta, gamma: 0.0
-        bbar = PeriodicBBar(bbar_fn, bbar_fn, bbar_fn)
-        coeff = compute_poly_even(M, alpha, beta, gamma, bbar=bbar, sign=sign)
-        # print(coeff)
-        self.gap = gap_from_coeff(coeff, imag_tol=imag_tol, root_eps=root_eps)
 
 
 class Calculation:
@@ -196,27 +45,99 @@ class Calculation:
         self.pk = self.polynomials[(num_triangles - 2) % 3]
         # print(p)
 
+        # self.p = [c / 1000 for c in self.p]
+
         self.roots = np.roots(self.p[::-1])
-        # print(self.roots)
+
+        from numpy.polynomial import Chebyshev
+
+        import mpmath as mp
+        mp.mp.dps = 100
+        alt_roots = mp.polyroots(self.p[::-1], maxsteps=1000, error=False)
+
+        alt_roots = np.array(alt_roots)
+        alt_roots.sort()
+
+        # has_imag = False
+        # for root in self.roots:
+        #     if np.abs(root.imag) > 1e-10:
+        #         has_imag = True
+        #         break
+        # if has_imag:
+        #     # assert False
+        #     vals = [alpha, beta, gamma]
+        #     vals.sort()
+        #     print(vals)
+        #     print(self.roots)
+        #     # for all other cases the root finding seems accurate enough
+        #     assert vals[0] == 0 and vals[1] == 0
+        #     assert len(self.roots) == num_triangles
+        #     # we know what the root should be in that case
+        #     root = 1 / vals[2]
+        #     # the inaccuracies are quite large in that case...
+        #     # for r in self.roots:
+        #     #     assert np.isclose(r, root), f"root {r} is not close to {root}"
+        #     self.roots = np.array([root for _ in range(num_triangles)])
+        # else:
+        #     self.roots = self.roots.real
+        # # self.roots = self.roots.real
+
+        orig_roots = self.roots.copy()
+        # self.roots = np.array([r.real + r.imag for r in self.roots])
+        self.roots = np.abs(self.roots)
+
         self.roots.sort()
+        self.roots = self.roots[::-1]
 
-        # assert num_triangles > 1
+        self.eps2 = 1 / self.roots
+        # print(self.eps2)
+        self.eps = np.sqrt(self.eps2)
 
-        # assert self.roots[0] < self.roots[1]
+        self.lagrange = []
+        for i in range(num_triangles):
+            prod = 1.0
+            for j in range(num_triangles):
+                if i == j:
+                    continue
+                prod *= -self.eps2[j] / (self.eps2[i] - self.eps2[j])
+                if self.eps2[i] == self.eps2[j]:
+                    print(
+                        "Warning: eps2[i] == eps2[j], this may cause numerical instability."
+                    )
+                    print(self.eps2[i], self.eps2[j])
+                    print(self.roots[i], self.roots[j])
+                    print(orig_roots[i], orig_roots[j])
+                    print(orig_roots)
+                    print(alt_roots)
+
+                    import sympy
+                    x = sympy.symbols("x")
+                    p_sympy = sympy.Poly(self.p[::-1], x)
+                    roots_sympy = sympy.roots(p_sympy)
+                    print("Sympy roots:", roots_sympy)
+
+                    assert False
+            self.lagrange.append(prod)
+        # print(self.lagrange)
+
+        # fendley_gap_direct = 1.0 / np.sqrt(self.roots[-1])
+
+        num_majoranas = 2 * num_triangles
 
         # print(self.roots)
-        # self.roots = self.roots[np.abs(self.roots.imag) < 1e-4]
-        # print(self.roots)
-        self.roots = self.roots.real[self.roots.real > 1e-9]
-        # print(self.roots)
-        if self.roots.size == 0:
-            return np.nan
+        # print("eps:", self.eps)
 
-        zmax = np.max(self.roots)
-        if not np.isfinite(zmax) or zmax <= 0:
-            return np.nan
+        self.majorana_matrix = np.zeros((num_majoranas, num_majoranas))
+        for i, eps in enumerate(self.eps):
+            self.majorana_matrix[2 * i, 2 * i + 1] = -eps
+            self.majorana_matrix[2 * i + 1, 2 * i] = eps
 
-        self.gap = 1.0 / np.sqrt(zmax)
+        lm, _ = skew_diagonalise(self.majorana_matrix)
+        smoothen_lamda(lm)
+        lm_pairs = get_lamda_pairs(lm)
+        min_abs_lm = min(abs(x) for _, x in lm_pairs)
+
+        self.gap = min_abs_lm
 
 
 def skew_diagonalise(
@@ -250,43 +171,6 @@ def get_lamda_pairs(lm: NDArray[np.float64]) -> list[tuple[tuple[int, int], floa
                 break
         i += 1
     return lm_pairs
-
-
-def get_lamda_minimum_eigenvalue(
-    lm_pairs: list[tuple[tuple[int, int], float]],
-) -> float:
-    val = 0.0
-    for _, x in lm_pairs:
-        val -= abs(x)
-    return 2 * val
-
-
-# TODO: implement it with the efficient sorting (cf. linegraph guiding notes)
-def get_lamda_eigenvalues(lm_pairs: list[tuple[tuple[int, int], float]]) -> list[float]:
-    all_possible_vals = set()
-    for i in range(0, 2 ** len(lm_pairs)):
-        val = 0.0
-        for j, (_, x) in enumerate(lm_pairs):
-            if (i >> j) & 1:
-                val += x
-            else:
-                val -= x
-        all_possible_vals.add(2 * val)
-    return sorted(all_possible_vals)
-
-
-def get_gap(lm_eigenvalues: list[float]) -> float:
-    """assume lm_eigenvalues is sorted in ascending order, return the gap between the minimum and the next one"""
-    min_value = lm_eigenvalues[0]
-    # loop to catch potential degeneracies
-    gap = 0
-    for val in lm_eigenvalues[1:]:
-        if np.isclose(val, min_value):
-            continue
-        else:
-            gap = val - min_value
-            break
-    return gap
 
 
 def triangle_grid(num_samples: int, factor: float = 3) -> NDArray:

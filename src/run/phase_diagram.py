@@ -6,7 +6,8 @@ import energy
 
 
 def run():
-    num_triangles = 200
+    # num_triangles = 50
+    num_triangles = 12
     if num_triangles % 2 == 0:
         num_currents = num_triangles // 2
     else:
@@ -16,31 +17,28 @@ def run():
     # calculation = energy.Calculation(num_triangles, 1., 0., 0., currents_alpha)
 
     factor = 3.0
-    num_samples = 40
+    num_samples = 20
     points = energy.triangle_grid(num_samples, factor)
 
     values = []
 
-    alpha, beta, gamma = 1., np.pi, 1.1
-    # calculation = energy.SamsCalculation(
-    #     3 * num_triangles, alpha, beta, gamma, 1, 1e-4, 1e-9
-    # )
+
     # calculation = energy.Calculation(
-    #     num_triangles, alpha**2, beta**2, gamma**2, currents_alpha
+    #     num_triangles, 1.**2, 1.**2, 1.**2, currents_alpha
     # )
 
     for alpha, beta, gamma in points:
+        vals = [alpha, beta, gamma]
+        vals.sort()
+        if vals[0] == 0 and vals[1] == 0:
+            values.append(factor)
+            continue
         calculation = energy.Calculation(
             num_triangles, alpha**2, beta**2, gamma**2, currents_alpha
         )
-        sub = "mine"
-        # calculation = energy.SamsCalculation(
-        #     3 * num_triangles, alpha, beta, gamma, 1, 1e-4, 1e-9
-        # )
-        # sub = "sams"
         values.append(calculation.gap)
-        # print(alpha, beta, gamma, calculation.gap_real)
         # print(alpha, beta, gamma)
+        # print(alpha, beta, gamma, calculation.gap)
 
     x, y = energy.points_to_plot_coordinates(points)
     triang = tri.Triangulation(x, y)
@@ -72,4 +70,4 @@ def run():
     ax.set_aspect("equal")
     ax.axis("off")
     plt.tight_layout()
-    plt.savefig(f"output/phase_diagram_{num_triangles}_{sub}.pdf")
+    plt.savefig(f"output/phase_diagram_{num_triangles}.pdf")
