@@ -3,6 +3,110 @@ import scipy
 from scipy import linalg
 from numpy.typing import NDArray
 from sage.all import Graph
+from wolframclient.evaluation import WolframLanguageSession
+from wolframclient.language import wl, wlexpr
+
+
+class Wolfram:
+    """Preferably use it as context, e.g. `with Wolfram() as wolfram: ...` so that the
+    session is properly closed even if exceptions occur."""
+
+    def __init__(self):
+        print("Starting Wolfram session...")
+        self.session = WolframLanguageSession(
+            "/usr/local/Wolfram/Wolfram/14.3/Executables/WolframKernel"
+        )
+        self.is_running = True
+
+        print("Loading Wolfram code")
+        self.session.evaluate("""
+        ClearALL["Coefficients"]
+        ClearALL["ComputeEpsilons"]
+        Coefficients[n_Integer, a_, b_, c_] := Module[
+          {
+           buf = {{}, {}, {1}},
+           p, pm1, pm2, pm3, f1, f2, f3, i, pmax
+           },
+          f1 = a + b + c;
+          f2 = a b + a c + b c;
+          f3 = a b c;
+          Do[
+           pm1 = buf[[Mod[i - 2, 3] + 1]];
+           pm2 = buf[[Mod[i - 3, 3] + 1]];
+           pm3 = buf[[Mod[i - 4, 3] + 1]];
+           pmax = i + 1;
+           p = Table[0, pmax];
+           Do[p[[j]] += pm1[[j]], {j, Length[pm1]}];
+           Do[p[[j + 1]] -= f1 pm1[[j]], {j, Length[pm1]}];
+           Do[p[[j + 2]] -= f2 pm2[[j]], {j, Length[pm2]}];
+           Do[p[[j + 3]] -= f3 pm3[[j]], {j, Length[pm3]}];
+           buf[[Mod[i - 1, 3] + 1]] = p;
+           , {i, 1, n}
+           ];
+          poly = buf[[Mod[n - 1, 3] + 1]];
+          poly3 = buf[[Mod[n - 2, 3] + 1]];
+          <|"Poly" -> poly, "Poly3" -> poly3|>
+          ]
+        ComputeEpsilons[n_Integer, a_, b_, c_] := Module[
+          {x, coeffs, polycoeffs, poly3coeffs, unsortedroots, roots, eps2, 
+           eps, poly3, pmfactors},
+          coeffs = Coefficients[n, a, b, c];
+          polycoeffs = coeffs["Poly"];
+          poly3coeffs = coeffs["Poly3"];
+          unsortedroots = 
+          x /. Solve[
+            Sum[polycoeffs[[i + 1]] x^i, {i, 0, Length[polycoeffs] - 1}] == 0, x];
+          roots = ReverseSort[unsortedroots];
+          eps2 = 1/roots;
+          eps = Sqrt[eps2];
+          poly3[x_] := 
+           Sum[poly3coeffs[[i + 1]] x^i, {i, 0, Length[poly3coeffs] - 1}];
+          pmfactors = poly3 /@ roots;
+          <|"Roots" -> roots, "EpsilonSquared" -> eps2, "Epsilons" -> eps, 
+           "PMFactors" -> pmfactors|>
+          ]
+        """)
+
+        print("Wolfram session is ready.")
+        # the following gives me earlier complex values
+        #  x /. NSolve[
+        #    Sum[polycoeffs[[i + 1]] x^i, {i, 0, Length[polycoeffs] - 1}] == 0,
+        #    x,
+        #    WorkingPrecision -> 100
+        # ];
+        #
+        # trying the following to get rid of degeneracies, doesn't work, it just gives me
+        # complex values when using Solve (NSolve has them anyways)
+        # coeffs = SetPrecision[coeffs / Max[Abs[coeffs]], 100];
+
+        # <|"Roots" -> roots, "EpsilonSquared" -> eps2, "Epsilons" -> eps,
+        #  "PMFactors" -> pmfactors|>
+        # <|"Roots" -> N[roots, 50], "EpsilonSquared" -> N[eps2, 50],
+        #  "Epsilons" -> N[eps, 50], "PMFactors" -> N[pmfactors, 50]|>
+
+    def close_session(self):
+        if self.is_running:
+            print("Terminating Wolfram session...")
+            self.session.terminate()
+            self.is_running = False
+            print("Wolfram session terminated.")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):  # pyright: ignore
+        self.close_session()
+        return False  # re-raise exceptions
+
+    # seems to not be called on exceptions, e.g., assertion failure
+    def __del__(self):
+        self.close_session()
+
+    def compute_epsilons(self, num_triangles: int, a: float, b: float, c: float):
+        result = self.session.evaluate(
+            f"ComputeEpsilons[{num_triangles}, {a}, {b}, {c}]"
+        )
+        return result
 
 
 class Calculation:
@@ -13,6 +117,7 @@ class Calculation:
         beta: float,
         gamma: float,
         currents_alpha: list[float],
+        wolfram: Wolfram,
     ):
         self.num_triangles = num_triangles
         self.alpha = alpha
@@ -20,83 +125,37 @@ class Calculation:
         self.gamma = gamma
         self.currents_alpha = currents_alpha
 
-        # P*_1, P*_2, P*_3 with index  being the number of triangles modulo 3
-        #           P*_-2, P*_-1, P*_0
-        self.polynomials = [[], [], [1]]
-        for num_t in range(1, num_triangles + 1):
-            # print(num_t)
-            idx = num_t - 1
-            p_m1 = self.polynomials[(idx - 1) % 3]
-            p_m2 = self.polynomials[(idx - 2) % 3]
-            p_m3 = self.polynomials[(idx - 3) % 3]
-            # p = [0] * (num_t + 2)
-            p = [0] * (num_t + 1)
-            for i, c in enumerate(p_m1):
-                p[i] += c
-                p[i + 1] -= (alpha + beta + gamma) * c
-            for i, c in enumerate(p_m2):
-                p[i + 2] -= (alpha * beta + alpha * gamma + beta * gamma) * c
-            for i, c in enumerate(p_m3):
-                p[i + 3] -= alpha * beta * gamma * c
-            self.polynomials[idx % 3] = p
-            # print(p)
+        self.wolfram_results = wolfram.compute_epsilons(
+            num_triangles, alpha, beta, gamma
+        )
 
-        self.p = self.polynomials[(num_triangles - 1) % 3]
-        self.pk = self.polynomials[(num_triangles - 2) % 3]
-        # print(p)
+        self.fendley_gap_direct = float(self.wolfram_results["Epsilons"][0])
 
-        # self.p = [c / 1000 for c in self.p]
+        self.roots = np.array(
+            [np.float128(r) for r in list(self.wolfram_results["Roots"])]
+        )
+        self.eps2 = np.array(
+            [np.float128(r) for r in list(self.wolfram_results["EpsilonSquared"])]
+        )
+        self.eps = np.array(
+            [np.float128(r) for r in list(self.wolfram_results["Epsilons"])]
+        )
+        self.pm_factors = np.array(
+            [np.float128(r) for r in list(self.wolfram_results["PMFactors"])]
+        )
 
-        self.roots = np.roots(self.p[::-1])
+        self.num_majoranas = 2 * self.num_triangles
 
-        from numpy.polynomial import Chebyshev
+        self.majorana_matrix = np.zeros((self.num_majoranas, self.num_majoranas))
+        for i, eps in enumerate(self.eps):
+            self.majorana_matrix[2 * i, 2 * i + 1] = -eps
+            self.majorana_matrix[2 * i + 1, 2 * i] = eps
 
-        import mpmath as mp
-        mp.mp.dps = 100
-        alt_roots = mp.polyroots(self.p[::-1], maxsteps=1000, error=False)
-
-        alt_roots = np.array(alt_roots)
-        alt_roots.sort()
-
-        # has_imag = False
-        # for root in self.roots:
-        #     if np.abs(root.imag) > 1e-10:
-        #         has_imag = True
-        #         break
-        # if has_imag:
-        #     # assert False
-        #     vals = [alpha, beta, gamma]
-        #     vals.sort()
-        #     print(vals)
-        #     print(self.roots)
-        #     # for all other cases the root finding seems accurate enough
-        #     assert vals[0] == 0 and vals[1] == 0
-        #     assert len(self.roots) == num_triangles
-        #     # we know what the root should be in that case
-        #     root = 1 / vals[2]
-        #     # the inaccuracies are quite large in that case...
-        #     # for r in self.roots:
-        #     #     assert np.isclose(r, root), f"root {r} is not close to {root}"
-        #     self.roots = np.array([root for _ in range(num_triangles)])
-        # else:
-        #     self.roots = self.roots.real
-        # # self.roots = self.roots.real
-
-        orig_roots = self.roots.copy()
-        # self.roots = np.array([r.real + r.imag for r in self.roots])
-        self.roots = np.abs(self.roots)
-
-        self.roots.sort()
-        self.roots = self.roots[::-1]
-
-        self.eps2 = 1 / self.roots
-        # print(self.eps2)
-        self.eps = np.sqrt(self.eps2)
-
+    def extend_model(self):
         self.lagrange = []
-        for i in range(num_triangles):
+        for i in range(self.num_triangles):
             prod = 1.0
-            for j in range(num_triangles):
+            for j in range(self.num_triangles):
                 if i == j:
                     continue
                 prod *= -self.eps2[j] / (self.eps2[i] - self.eps2[j])
@@ -105,33 +164,14 @@ class Calculation:
                         "Warning: eps2[i] == eps2[j], this may cause numerical instability."
                     )
                     print(self.eps2[i], self.eps2[j])
-                    print(self.roots[i], self.roots[j])
-                    print(orig_roots[i], orig_roots[j])
-                    print(orig_roots)
-                    print(alt_roots)
-
-                    import sympy
-                    x = sympy.symbols("x")
-                    p_sympy = sympy.Poly(self.p[::-1], x)
-                    roots_sympy = sympy.roots(p_sympy)
-                    print("Sympy roots:", roots_sympy)
-
+                    # print(self.roots[i], self.roots[j])
+                    # print(self.roots)
+                    print(self.wolfram_results["EpsilonSquared"])
+                    print(self.wolfram_results["Roots"])
                     assert False
             self.lagrange.append(prod)
-        # print(self.lagrange)
 
-        # fendley_gap_direct = 1.0 / np.sqrt(self.roots[-1])
-
-        num_majoranas = 2 * num_triangles
-
-        # print(self.roots)
-        # print("eps:", self.eps)
-
-        self.majorana_matrix = np.zeros((num_majoranas, num_majoranas))
-        for i, eps in enumerate(self.eps):
-            self.majorana_matrix[2 * i, 2 * i + 1] = -eps
-            self.majorana_matrix[2 * i + 1, 2 * i] = eps
-
+    def compute_gap(self):
         lm, _ = skew_diagonalise(self.majorana_matrix)
         smoothen_lamda(lm)
         lm_pairs = get_lamda_pairs(lm)
@@ -185,7 +225,24 @@ def triangle_grid(num_samples: int, factor: float = 3) -> NDArray:
     return np.array(points) * factor
 
 
-def triangle_grid_inner(num_samples, factor=3):
+# same as triangle_grid, i.e., alpha, beta, gamma add up to factor, but only include
+# points where each of alpha, beta, gamma is at least minimum_bound. This is to avoid
+# numerical instability when one of them is close to zero.
+def triangle_grid_with_minimum_bound(
+    num_samples: int, factor: float = 3, minimum_bound: float = 0.1
+):
+    points = []
+    for i in range(num_samples + 1):
+        for j in range(num_samples + 1 - i):
+            k = num_samples - i - j
+            alpha = i / num_samples * (factor - 3 * minimum_bound) + minimum_bound
+            beta = j / num_samples * (factor - 3 * minimum_bound) + minimum_bound
+            gamma = k / num_samples * (factor - 3 * minimum_bound) + minimum_bound
+            points.append([alpha, beta, gamma])
+    return np.array(points)
+
+
+def triangle_grid_no_edge(num_samples: int, factor: float = 3):
     points = triangle_grid(num_samples, factor)
     to_remove = []
     for i, point in enumerate(points):

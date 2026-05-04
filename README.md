@@ -16,6 +16,7 @@ work to execute the code `src/`.
 environment
 - Once sagemath is installed, do `python -m venv .venv --system-site-packages` to get the
 system packages into the environment.
-- Then activate it and do `pip install -r requirements.txt` to install the rest. (note
-that the requirements file does only list the top-level packages directly installed using
-pip; i.e., it's not useful for reproducibility). This will require a Rust compiler.
+- Then activate it, install `rust_backend/py_lib` (this will require a Rust compiler) and
+finally do `pip install -r requirements.txt` to install the rest. (note that the
+requirements file does only list the top-level packages directly installed using pip;
+i.e., it's not useful for reproducibility). 
