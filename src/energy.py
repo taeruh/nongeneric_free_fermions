@@ -127,7 +127,6 @@ class Calculation:
         self.beta = beta
         self.gamma = gamma
 
-        start = time.time()
         self.wolfram_results = wolfram.compute_epsilons(
             num_triangles, alpha, beta, gamma
         )
@@ -143,25 +142,26 @@ class Calculation:
         self.pm_factors = np.array(
             [np.float128(r) for r in list(self.wolfram_results["PMFactors"])]
         )
-        print(f"Wolfram computation took {time.time() - start:.10f} seconds.")
 
         self.fendley_gap_direct = float(self.wolfram_results["Epsilons"][0])
         self.num_majoranas = 2 * self.num_triangles
 
-        self.majorana_matrix = np.zeros((self.num_majoranas, self.num_majoranas))
+        self.fendley_h_matrix = np.zeros(
+            (self.num_majoranas, self.num_majoranas), dtype=np.float128
+        )
+        self.fendley_norm = 0.0
         for i, eps in enumerate(self.eps):
-            self.majorana_matrix[2 * i, 2 * i + 1] = -eps
-            self.majorana_matrix[2 * i + 1, 2 * i] = eps
+            self.fendley_h_matrix[2 * i, 2 * i + 1] = -eps
+            self.fendley_h_matrix[2 * i + 1, 2 * i] = eps
+            self.fendley_norm += 2 * abs(eps)
+        self.h_matrix = self.fendley_h_matrix.copy()
 
-    def extend_model(self, currents_alpha: list[float]):
-        self.currents_alpha = currents_alpha
-        self.num_currents = len(currents_alpha)
+    def calculate_hl_matrices(self):
         if self.num_triangles % 2 == 0:
-            assert self.num_currents == self.num_triangles // 2
+            self.num_currents = self.num_triangles // 2
         else:
-            assert self.num_currents == (self.num_triangles + 1) // 2
+            self.num_currents = (self.num_triangles + 1) // 2
 
-        start = time.time()
         self.lagrange = []
         self.norm = []
         for i in range(self.num_triangles):
@@ -182,18 +182,14 @@ class Calculation:
                     assert False
             self.lagrange.append(lagrange)
             self.norm.append(16 * self.pm_factors[i] * lagrange)
-        print(
-            f"Computation of Lagrange coefficients and norms took {time.time() - start:.10f} seconds."
-        )
 
         # print(self.lagrange)
         # print(self.norm)
 
-        start = time.time()
         mus = []
         for l in range(self.num_currents):
             l = 1 + 2 * l
-            mul = np.zeros((self.num_triangles, self.num_triangles))
+            mul = np.zeros((self.num_triangles, self.num_triangles), dtype=np.float128)
             for m in range(self.num_triangles):
                 for n in range(self.num_triangles):
                     mu = (
@@ -211,33 +207,42 @@ class Calculation:
                             eps_sum += self.eps[n] ** i * self.eps[m] ** (l - i)
                     mul[m, n] = mu * eps_sum
             mus.append(mul)
-        print(f"Computation of mus took {time.time() - start:.10f} seconds.")
 
-        start = time.time()
+        self.hl_matrices = []
+        self.hl_norms = []
         for l in range(self.num_currents):
-            h = np.zeros((self.num_majoranas, self.num_majoranas))
+            hl = np.zeros((self.num_majoranas, self.num_majoranas), dtype=np.float128)
+            hl_norm = 0.0
             for m in range(self.num_triangles):
                 for n in range(self.num_triangles):
                     mu = mus[l][m, n]
-                    h[2 * m - 1, 2 * n] = mu
-                    h[2 * n, 2 * m - 1] = -mu
-            self.majorana_matrix += currents_alpha[l] * h
-        print(f"Extension of the model took {time.time() - start:.10f} seconds.")
+                    hl[2 * m - 1, 2 * n] = mu
+                    hl[2 * n, 2 * m - 1] = -mu
+                    hl_norm += 2 * np.abs(mu)
+            self.hl_matrices.append(hl)
+            self.hl_norms.append(hl_norm)
+
+    def extend_model(self, currents_weights: list[float], fendley_weight: float):
+        """
+        the original fendley h matrix and the currents hl matrices are both normalized;
+        fendley_weight is None this normalization is automatically undone for the fendley
+        h matrix (i.e., effectively it sets fendley_weight to self.fendley_h_norm)
+        """
+        assert self.num_currents == len(currents_weights)
+        self.h_matrix = fendley_weight * self.fendley_h_matrix / self.fendley_norm
+        for l in range(self.num_currents):
+            self.h_matrix += (
+                currents_weights[l] * self.hl_matrices[l] / self.hl_norms[l]
+            )
 
     def compute_gap(self):
-        start = time.time()
-        norm = np.linalg.norm(self.majorana_matrix)
-        print(f"Calculation of the norm {norm} took {time.time() - start:.10f} seconds.")
-        majorana_matrix_normalized = self.majorana_matrix / norm
-        start = time.time()
+        norm = np.linalg.norm(self.h_matrix)
+        # print(norm)
+        majorana_matrix_normalized = self.h_matrix / norm
         lm, _ = skew_diagonalise(majorana_matrix_normalized)
         smoothen_lamda(lm)
         lm_pairs = get_lamda_pairs(lm)
         min_abs_lm = min(abs(x) for _, x in lm_pairs)
-        print(
-            f"Skew-diagonalisation and processing of the eigenvalues took {time.time() -
-            start:.10f} seconds."
-        )
 
         self.gap = min_abs_lm * norm
 

@@ -7,33 +7,44 @@ from energy import Wolfram
 
 
 def run():
-    num_triangles = 80
+    num_triangles = 15
+    # num_triangles = 100
     if num_triangles % 2 == 0:
         num_currents = num_triangles // 2
     else:
         num_currents = (num_triangles + 1) // 2
-    currents_alpha = [1.0 for _ in range(num_currents)]
+    currents_weights = [1.0 for _ in range(num_currents)]
+    fendley_weight = 1.0
 
     # calculation = energy.Calculation(num_triangles, 1., 0., 0., currents_alpha)
 
     factor = 3.0
-    num_samples = 20
+    num_samples = 25
+    # num_samples = 50
     # points = energy.triangle_grid(num_samples, factor)
     points = energy.triangle_grid_with_minimum_bound(
         num_samples, factor, minimum_bound=0.40
     )
 
-    with Wolfram() as wolfram:
-        calculation = energy.Calculation(
-            num_triangles,
-            1.0**2,
-            1.0**2,
-            1.0**2,
-            wolfram,
-        )
-        calculation.extend_model(currents_alpha)
-        calculation.compute_gap()
-        assert False
+    # with Wolfram() as wolfram:
+    #     calculation = energy.Calculation(
+    #         num_triangles,
+    #         1.0**2,
+    #         1.0**2,
+    #         1.0**2,
+    #         wolfram,
+    #     )
+    #     calculation.calculate_hl_matrices()
+    #     # currents_weights, fendley_weight = (
+    #     #     calculation.hl_norms,
+    #     #     calculation.fendley_norm,
+    #     # )
+    #     calculation.extend_model(currents_weights, fendley_weight)
+    #     calculation.compute_gap()
+    #     print(calculation.hl_norms)
+    #     print(calculation.fendley_norm)
+    #     print(calculation.gap)
+    #     assert False
 
     values = []
     with Wolfram() as wolfram:
@@ -47,7 +58,13 @@ def run():
             calculation = energy.Calculation(
                 num_triangles, alpha**2, beta**2, gamma**2, wolfram
             )
-            calculation.extend_model(currents_alpha)
+            calculation.calculate_hl_matrices()
+            # currents_weights, fendley_weight = (
+            #     calculation.hl_norms,
+            #     calculation.fendley_norm,
+            # )
+            # calculation.extend_model(currents_weights, fendley_weight)
+            calculation.extend_model(currents_weights, 0.0)
             calculation.compute_gap()
             values.append(calculation.gap)
             # print(alpha, beta, gamma)
