@@ -11,11 +11,12 @@ class Wolfram:
     """Preferably use it as context, e.g. `with Wolfram() as wolfram: ...` so that the
     session is properly closed even if exceptions occur."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        kernel_path: str = "/usr/local/Wolfram/Wolfram/14.3/Executables/WolframKernel",
+    ):
         print("Starting Wolfram session...")
-        self.session = WolframLanguageSession(
-            "/usr/local/Wolfram/Wolfram/14.3/Executables/WolframKernel"
-        )
+        self.session = WolframLanguageSession(kernel_path)
         self.is_running = True
 
         print("Loading Wolfram code")
@@ -109,6 +110,9 @@ class Wolfram:
         return result
 
 
+import time
+
+
 class Calculation:
     def __init__(
         self,
@@ -116,21 +120,17 @@ class Calculation:
         alpha: float,
         beta: float,
         gamma: float,
-        currents_alpha: list[float],
         wolfram: Wolfram,
     ):
         self.num_triangles = num_triangles
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
-        self.currents_alpha = currents_alpha
 
+        start = time.time()
         self.wolfram_results = wolfram.compute_epsilons(
             num_triangles, alpha, beta, gamma
         )
-
-        self.fendley_gap_direct = float(self.wolfram_results["Epsilons"][0])
-
         self.roots = np.array(
             [np.float128(r) for r in list(self.wolfram_results["Roots"])]
         )
@@ -143,7 +143,9 @@ class Calculation:
         self.pm_factors = np.array(
             [np.float128(r) for r in list(self.wolfram_results["PMFactors"])]
         )
+        print(f"Wolfram computation took {time.time() - start:.10f} seconds.")
 
+        self.fendley_gap_direct = float(self.wolfram_results["Epsilons"][0])
         self.num_majoranas = 2 * self.num_triangles
 
         self.majorana_matrix = np.zeros((self.num_majoranas, self.num_majoranas))
@@ -151,14 +153,23 @@ class Calculation:
             self.majorana_matrix[2 * i, 2 * i + 1] = -eps
             self.majorana_matrix[2 * i + 1, 2 * i] = eps
 
-    def extend_model(self):
+    def extend_model(self, currents_alpha: list[float]):
+        self.currents_alpha = currents_alpha
+        self.num_currents = len(currents_alpha)
+        if self.num_triangles % 2 == 0:
+            assert self.num_currents == self.num_triangles // 2
+        else:
+            assert self.num_currents == (self.num_triangles + 1) // 2
+
+        start = time.time()
         self.lagrange = []
+        self.norm = []
         for i in range(self.num_triangles):
-            prod = 1.0
+            lagrange = 1.0
             for j in range(self.num_triangles):
                 if i == j:
                     continue
-                prod *= -self.eps2[j] / (self.eps2[i] - self.eps2[j])
+                lagrange *= -self.eps2[j] / (self.eps2[i] - self.eps2[j])
                 if self.eps2[i] == self.eps2[j]:
                     print(
                         "Warning: eps2[i] == eps2[j], this may cause numerical instability."
@@ -169,15 +180,66 @@ class Calculation:
                     print(self.wolfram_results["EpsilonSquared"])
                     print(self.wolfram_results["Roots"])
                     assert False
-            self.lagrange.append(prod)
+            self.lagrange.append(lagrange)
+            self.norm.append(16 * self.pm_factors[i] * lagrange)
+        print(
+            f"Computation of Lagrange coefficients and norms took {time.time() - start:.10f} seconds."
+        )
+
+        # print(self.lagrange)
+        # print(self.norm)
+
+        start = time.time()
+        mus = []
+        for l in range(self.num_currents):
+            l = 1 + 2 * l
+            mul = np.zeros((self.num_triangles, self.num_triangles))
+            for m in range(self.num_triangles):
+                for n in range(self.num_triangles):
+                    mu = (
+                        (-1) ** (((l - 1) // 2) % 2)
+                        * self.norm[m]
+                        * self.norm[n]
+                        * self.lagrange[m]
+                        * self.lagrange[n]
+                    )
+                    eps_sum = 0
+                    for i in range(l):
+                        if i % 2 == 0:
+                            eps_sum += self.eps[m] ** i * self.eps[n] ** (l - i)
+                        else:
+                            eps_sum += self.eps[n] ** i * self.eps[m] ** (l - i)
+                    mul[m, n] = mu * eps_sum
+            mus.append(mul)
+        print(f"Computation of mus took {time.time() - start:.10f} seconds.")
+
+        start = time.time()
+        for l in range(self.num_currents):
+            h = np.zeros((self.num_majoranas, self.num_majoranas))
+            for m in range(self.num_triangles):
+                for n in range(self.num_triangles):
+                    mu = mus[l][m, n]
+                    h[2 * m - 1, 2 * n] = mu
+                    h[2 * n, 2 * m - 1] = -mu
+            self.majorana_matrix += currents_alpha[l] * h
+        print(f"Extension of the model took {time.time() - start:.10f} seconds.")
 
     def compute_gap(self):
-        lm, _ = skew_diagonalise(self.majorana_matrix)
+        start = time.time()
+        norm = np.linalg.norm(self.majorana_matrix)
+        print(f"Calculation of the norm {norm} took {time.time() - start:.10f} seconds.")
+        majorana_matrix_normalized = self.majorana_matrix / norm
+        start = time.time()
+        lm, _ = skew_diagonalise(majorana_matrix_normalized)
         smoothen_lamda(lm)
         lm_pairs = get_lamda_pairs(lm)
         min_abs_lm = min(abs(x) for _, x in lm_pairs)
+        print(
+            f"Skew-diagonalisation and processing of the eigenvalues took {time.time() -
+            start:.10f} seconds."
+        )
 
-        self.gap = min_abs_lm
+        self.gap = min_abs_lm * norm
 
 
 def skew_diagonalise(

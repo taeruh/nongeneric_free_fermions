@@ -7,51 +7,58 @@ from energy import Wolfram
 
 
 def run():
-    num_triangles = 100
-    # num_triangles = 12
+    num_triangles = 80
     if num_triangles % 2 == 0:
         num_currents = num_triangles // 2
     else:
-        num_currents = (num_triangles - 1) // 2
+        num_currents = (num_triangles + 1) // 2
     currents_alpha = [1.0 for _ in range(num_currents)]
 
     # calculation = energy.Calculation(num_triangles, 1., 0., 0., currents_alpha)
 
     factor = 3.0
-    num_samples = 15
+    num_samples = 20
     # points = energy.triangle_grid(num_samples, factor)
     points = energy.triangle_grid_with_minimum_bound(
-        num_samples, factor, minimum_bound=0.94
+        num_samples, factor, minimum_bound=0.40
     )
 
-
-    # with Wolfram() as wolfram:
-    #     calculation = energy.Calculation(
-    #         24, 1.**2, 1.**2, 1.**2, currents_alpha, wolfram,
-    #     )
-    #     assert False
+    with Wolfram() as wolfram:
+        calculation = energy.Calculation(
+            num_triangles,
+            1.0**2,
+            1.0**2,
+            1.0**2,
+            wolfram,
+        )
+        calculation.extend_model(currents_alpha)
+        calculation.compute_gap()
+        assert False
 
     values = []
     with Wolfram() as wolfram:
         for alpha, beta, gamma in points:
-            print(alpha, beta, gamma)
+            # print(alpha, beta, gamma)
             vals = [alpha, beta, gamma]
             vals.sort()
             if vals[0] == 0 and vals[1] == 0:
                 values.append(factor)
                 continue
             calculation = energy.Calculation(
-                num_triangles, alpha**2, beta**2, gamma**2, currents_alpha, wolfram
+                num_triangles, alpha**2, beta**2, gamma**2, wolfram
             )
+            calculation.extend_model(currents_alpha)
+            calculation.compute_gap()
             values.append(calculation.gap)
             # print(alpha, beta, gamma)
             # print(alpha, beta, gamma, calculation.gap)
 
-    print(values)
+    # print(values)
 
     x, y = energy.points_to_plot_coordinates(points)
     triang = tri.Triangulation(x, y)
     _, ax = plt.subplots(figsize=(7, 6))
+    values = np.log(values)
     tpc = ax.tripcolor(triang, values, shading="gouraud")
     vertices_bary = np.array(
         [
