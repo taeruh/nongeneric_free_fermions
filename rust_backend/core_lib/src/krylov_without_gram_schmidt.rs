@@ -114,6 +114,10 @@ impl GeneratorsWithoutGramSchmidt {
     pub fn init_eta_currents(&mut self) {
         let currents = Mutex::new(HashMap::new());
         (0..self.num_generators).into_par_iter().for_each(|l| {
+            if l % 2 == 0 {
+                currents.lock().unwrap().insert(l, PauliSum(vec![]));
+                return;
+            }
             let mut current = PauliSum(vec![]);
             for k in 0..l {
                 let l_k = l - k;

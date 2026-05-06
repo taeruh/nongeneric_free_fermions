@@ -346,6 +346,10 @@ class Generators:
         currents"""
         self.eta_currents: list[PauliSum] = []
         for l in range(self.num_generators):
+            # NOTE: we only want the odd currents, the following is a cheap fix for that
+            if l % 2 == 0:
+                self.eta_currents.append(PauliSum([]))
+                continue
             current = PauliSum([])
             for k in range(l):
                 l_k = l - k
@@ -381,6 +385,10 @@ class Generators:
     ) -> list[list[tuple[int, int, float]]]:
         ret = []
         for l in range(self.num_generators):
+            # NOTE: cf. NOTE in init_eta_currents
+            if l % 2 == 0:
+                ret.append([])
+                continue
             current_coeffs = []
             for a in range(self.num_generators):
                 for b in range(a + 1, self.num_generators):

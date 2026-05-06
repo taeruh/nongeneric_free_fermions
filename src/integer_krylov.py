@@ -104,6 +104,9 @@ class IntegerGenerators:
         """multiplied an "i" in to make them hermitian"""
         self.eta_currents: list[IntegerPauliSum] = []
         for l in range(self.num_generators):
+            if l % 2 == 0:
+                self.eta_currents.append(IntegerPauliSum([]))
+                continue
             current = IntegerPauliSum([])
             for k in range(l):
                 l_k = l - k
@@ -127,7 +130,10 @@ class IntegerGenerators:
                 assert op.get_hermitian_phase() in [0, 2]
             self.eta_currents.append(current)
 
+
 import numpy as np
+
+
 class GramSchmidtProcess:
     def __init__(self, first_vector: list[int], tolerance: float = 1e-5):
         norm = np.linalg.norm(first_vector)

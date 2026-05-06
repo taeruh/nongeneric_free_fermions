@@ -96,14 +96,14 @@ def calc_gap(num_triangles, alpha, beta, gamma, extend: bool) -> float:
         h[j, i] = -coeff / 2
     # print(h)
 
-    lm, _ = phase_diagram.skew_diagonalise(h)
-    phase_diagram.smoothen_lamda(lm, eps=1e-10)
+    lm, _ = energy.skew_diagonalise(h)
+    energy.smoothen_lamda(lm, eps=1e-10)
     # print(lm)
-    lm_pairs = phase_diagram.get_lamda_pairs(lm)
+    lm_pairs = energy.get_lamda_pairs(lm)
     # print(lm_pairs)
-    all_values = phase_diagram.get_lamda_eigenvalues(lm_pairs)
+    all_values = energy.get_lamda_eigenvalues(lm_pairs)
     min_value = all_values[0]
-    gap = phase_diagram.get_gap(all_values)
+    gap = energy.get_gap(all_values)
 
     # print(lm_pairs)
     # print(all_values)
@@ -127,7 +127,7 @@ def get_phase_diagram():
     up_num_triangles = 6
     num_samples = 15
     factor = 3
-    points = phase_diagram.triangle_grid(num_samples, factor)
+    points = energy.triangle_grid(num_samples, factor)
 
     do_calculation = True
     # do_calculation = False
@@ -164,7 +164,7 @@ def get_phase_diagram():
         range(low_num_triangles, up_num_triangles + 1), all_values
     ):
         # values = [np.log10(value) for value in values]
-        x, y = phase_diagram.points_to_plot_coordinates(points)
+        x, y = energy.points_to_plot_coordinates(points)
         triang = tri.Triangulation(x, y)
         _, ax = plt.subplots(figsize=(7, 6))
         tpc = ax.tripcolor(triang, values, shading="gouraud")
@@ -176,11 +176,11 @@ def get_phase_diagram():
                 [factor, 0, 0],  # close the loop
             ]
         )
-        vx, vy = phase_diagram.points_to_plot_coordinates(vertices_bary)
+        vx, vy = energy.points_to_plot_coordinates(vertices_bary)
         ax.plot(vx, vy, lw=1)
 
         def place_label(ax, alpha, beta, gamma, text, **kwargs):
-            x, y = phase_diagram.points_to_plot_coordinates(
+            x, y = energy.points_to_plot_coordinates(
                 np.array([[alpha, beta, gamma]])
             )
             ax.text(x[0], y[0], text, **kwargs)
@@ -204,10 +204,10 @@ def get_phase_diagram():
 
 
 def test_t():
-    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    fendley = Fendley(3, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
 
     simplicial_mode = fendley.example_simplicial_modes["IIYII"][0]
-    generators = Generators(simplicial_mode, fendley.hamiltonian)
+    generators = Generators((1.0, simplicial_mode), fendley.hamiltonian)
     generators.init_eta_currents()
     fendley.extend_with_currents(
         generators.eta_currents,
@@ -236,7 +236,7 @@ def test_t():
         charges[length].single_add(weight, product)
 
     # for charge in charges:
-    #     for w, op in charge:
+    #     for w, op in charge.to_py_list():
     #         print(f"{w:.2f}, {op.to_string()}")
     #     print()
 
@@ -278,10 +278,10 @@ def test_t():
 
 
 def run():
-    num_triangles = 2
+    num_triangles = 3
     fendley = Fendley(num_triangles)
     simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
-    generators = Generators(simplicial_mode, fendley.hamiltonian)
+    generators = Generators((1.0, simplicial_mode), fendley.hamiltonian)
     generators.init_eta_currents()
 
     fendley_extended = fendley.clone()
@@ -329,6 +329,7 @@ def run():
         claw = claws_ops.pop()
         for other in claws_ops:
             prod = claw.multiply(other)
+            print(prod.len())
             if prod.len() == 4:
                 print([(f"{w:.2f}, {op.to_string()}") for w, op in prod.to_py_list()])
                 weights = []
@@ -364,7 +365,7 @@ def trying_to_reconstruct_fukai_from_bilinears():
         print(op.to_string())
 
     simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
-    generators = Generators(simplicial_mode, fendley.hamiltonian)
+    generators = Generators((1.0, simplicial_mode), fendley.hamiltonian)
     fendley_with_simplicial_mode = fendley.hamiltonian
     fendley_with_simplicial_mode.operators.append(simplicial_mode)
     fendley_with_simplicial_mode.weights.append(np.float64(1.0))

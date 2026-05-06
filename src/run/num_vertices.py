@@ -27,7 +27,8 @@ from paulis import Pauli
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 4
+    # up_num_triangles = 8
+    up_num_triangles = 14
 
     # weight = 1
     # seed = 3
@@ -200,6 +201,11 @@ def run():
                             int_generators.eta_currents,
                             [1 for _ in int_generators.eta_currents],
                         )
+                        print(
+                            num_verts,
+                            num_verts_wgs,
+                            len(integer_fendley.hamiltonian.operators),
+                        )
                         assert num_verts == len(integer_fendley.hamiltonian.operators)
                     assert num_verts == num_verts_wgs
 
@@ -272,7 +278,7 @@ def p(
     b,
     c,
     d,
-    # e,
+    e,
     # f,
     # g,
     # h,
@@ -285,7 +291,7 @@ def p(
         + b * x**3
         + c * x**4
         + d * x**5
-        # + e * x**6
+        + e * x**6
         # + f * x**7
         # + g * x**8
         # + h * x**9

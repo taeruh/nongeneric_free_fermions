@@ -9,7 +9,7 @@ def main():
     os.makedirs("output", exist_ok=True)
 
     # test()
-    phase_diagram.fendley_phase()
+    # phase_diagram.fendley_phase()
     # phase_diagram.currents_phase()
     # phase_diagram.add_currents_phase()
     # num_claws.run()

@@ -3,8 +3,6 @@ import scipy
 from scipy import linalg
 from numpy.typing import NDArray
 from sage.all import Graph
-from wolframclient.evaluation import WolframLanguageSession
-from wolframclient.language import wl, wlexpr
 
 
 class Wolfram:
@@ -15,6 +13,8 @@ class Wolfram:
         self,
         kernel_path: str = "/usr/local/Wolfram/Wolfram/14.3/Executables/WolframKernel",
     ):
+        from wolframclient.evaluation import WolframLanguageSession
+
         print("Starting Wolfram session...")
         self.session = WolframLanguageSession(kernel_path)
         self.is_running = True

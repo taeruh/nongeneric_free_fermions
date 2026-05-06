@@ -11,7 +11,7 @@ from krylov import Generators
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 4
+    up_num_triangles = 5
 
     # weight = 1
     # seed = 3
@@ -22,8 +22,8 @@ def run():
     currents_alpha = ConstantWeight(np.float64(1))
     simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
 
-    # load_data = False
-    load_data = True
+    load_data = False
+    # load_data = True
 
     os.makedirs("output/currents", exist_ok=True)
     file_identifier = (
