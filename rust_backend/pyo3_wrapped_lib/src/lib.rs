@@ -1,6 +1,7 @@
 pub mod paulis;
 pub mod fendley;
 pub mod krylov_without_gram_schmidt;
+pub mod energy;
 pub mod hamiltonian;
 
 use pyo3::{
@@ -40,5 +41,6 @@ pub fn create_full_module(
     paulis::add_this_module(py, &module)?;
     fendley::add_this_module(py, &module)?;
     krylov_without_gram_schmidt::add_this_module(py, &module)?;
+    energy::add_this_module(py, &module)?;
     Ok(())
 }

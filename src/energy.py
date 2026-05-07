@@ -3,6 +3,7 @@ import scipy
 from scipy import linalg
 from numpy.typing import NDArray
 from sage.all import Graph
+from rust_backend import energy as rust_energy
 
 
 class Wolfram:
@@ -20,6 +21,12 @@ class Wolfram:
         self.is_running = True
 
         print("Loading Wolfram code")
+        # NOTE: As already noted somewhere else, this here fails eventually if n is too
+        # big and a, b, c are not integers. If they are integers, we can push n fairly
+        # high. If some strange things seem to happen with the pmfactors, try to increase
+        # the precision in the pmfactors = poly3 /@ N[roots, 1000] line -> edit: after
+        # some changes we kinda want that N[..., ...] there, otherwise it takes even
+        # longer (forever?), however the previous note about it might still hold
         self.session.evaluate("""
         ClearALL["Coefficients"]
         ClearALL["ComputeEpsilons"]
@@ -49,53 +56,42 @@ class Wolfram:
           <|"Poly" -> poly, "Poly3" -> poly3|>
           ]
         ComputeEpsilons[n_Integer, a_, b_, c_] := Module[
-          {x, coeffs, polycoeffs, poly3coeffs, unsortedroots, roots, negroots, eps2, 
-           eps, poly3, pmfactors},
+          {x, coeffs, polycoeffs, poly3coeffs, unsortedroots, roots, negroots,
+           eps, poly3, pmfactors, poly3norm, lagrangefactor, effectivenorm},
           coeffs = Coefficients[n, a, b, c];
           polycoeffs = coeffs["Poly"];
           poly3coeffs = coeffs["Poly3"];
-          unsortedroots = 
-          x /. Solve[
-              Sum[polycoeffs[[i + 1]] x^i, {i, 0, Length[polycoeffs] - 1}] == 0, x
-          ];
+          poly3norm = Total[Abs[poly3coeffs]];
+          unsortedroots = x /. Solve[FromDigits[Reverse[polycoeffs], x] == 0, x];
           roots = Sort[unsortedroots];
           negroots = -roots;
-          eps2 = 1/negroots;
-          eps = Sqrt[eps2];
+          eps = Sqrt[1/negroots];
           poly3[x_] := FromDigits[Reverse[poly3coeffs], x];
-          pmfactors = poly3 /@ roots;
-          pmsigns = Sign[pmfactors];
-          negroots = N[negroots, {100, 100}];
+          pmfactors = poly3 /@ N[roots, 1000];
+          lagrangefactor[i_] := Module[{lagrange = SetPrecision[1.0, 1000], j},
+            Do[
+              If[i == j, Continue[]];
+              lagrange *= roots[[j]] / (roots[[j]] - roots[[i]]);
+              If[roots[[i]] == roots[[j]],
+                Print["root degeneracy detected"];
+                Assert[False]
+              ];
+            , {j, n}];
+            lagrange
+          ];
+          effectivenorm = Table[
+          With[{lagrange = lagrangefactor[i]},
+            Assert[Sign[pmfactors[[i]]] == Sign[lagrange]];
+            Sqrt[Abs[pmfactors[[i]]]] * Sqrt[Abs[lagrange]]
+          ], {i, n}];
           roots = N[roots, {100, 100}];
-          eps2 = N[eps2, {100, 100}];
           eps = N[eps, {100, 100}];
-          pmfactors = N[pmfactors, {100, 100}];
-          <|"Roots" -> roots, "NegRoots" -> negroots, "EpsilonSquared" -> eps2,
-            "Epsilons" -> eps, "PMFactors" -> pmfactors, "Poly" -> polycoeffs,
-            "Poly3" -> poly3coeffs, "PMSigns" -> pmsigns|>
+          effectivenorm = N[effectivenorm, {100, 100}];
+          <|"Roots" -> roots, "Epsilons" -> eps, "EffectiveNorm" -> effectivenorm|>
           ]
-          ComputeEpsilons[25, 1, 1, 1
         """)
 
         print("Wolfram session is ready.")
-        # poly3[x_] :=
-        #  Sum[poly3coeffs[[i + 1]] x^i, {i, 0, Length[poly3coeffs] - 1}];
-
-        # the following gives me earlier complex values
-        #  x /. NSolve[
-        #    Sum[polycoeffs[[i + 1]] x^i, {i, 0, Length[polycoeffs] - 1}] == 0,
-        #    x,
-        #    WorkingPrecision -> 100
-        # ];
-        #
-        # trying the following to get rid of degeneracies, doesn't work, it just gives me
-        # complex values when using Solve (NSolve has them anyways)
-        # coeffs = SetPrecision[coeffs / Max[Abs[coeffs]], 100];
-
-        # <|"Roots" -> roots, "EpsilonSquared" -> eps2, "Epsilons" -> eps,
-        #  "PMFactors" -> pmfactors|>
-        # <|"Roots" -> N[roots, 50], "EpsilonSquared" -> N[eps2, 50],
-        #  "Epsilons" -> N[eps, 50], "PMFactors" -> N[pmfactors, 50]|>
 
     def close_session(self):
         if self.is_running:
@@ -119,6 +115,10 @@ class Wolfram:
         result = self.session.evaluate(
             f"ComputeEpsilons[{num_triangles}, {a}, {b}, {c}]"
         )
+        return result
+
+    def get_independence_polynomial(self, num_triangles: int, a, b, c):
+        result = self.session.evaluate(f"Coefficients[{num_triangles}, {a}, {b}, {c}]")
         return result
 
 
@@ -146,35 +146,53 @@ class Calculation:
         self.gamma2 = gamma2
 
         start = time.time()
+        # PERF: this here is the bottleneck (except if we run into a situtation where we
+        # would have to calculate the mu factors in python because they require more than
+        # rust f64 precision (f128 is available in nightly, but converting f128 via pyo3
+        # could be sketchy...)); interestingly it is not the calculation of the polynomial
+        # or the roots but rather the calculation of the effective norms (which is
+        # essentially a double loop; apparently mathematica is also quite bad with
+        # explicit loops)
         self.wolfram_results = wolfram.compute_epsilons(
             num_triangles, alpha2, beta2, gamma2
         )
         print(f"Wolfram computation took {time.time() - start:.10f} seconds.")
 
         start = time.time()
+        # NOTE: no point in using np.float128 here, since it seems that the values get
+        # first converted in a standard python float (which has 64bits) (values at around
+        # 10^306 (which is about the max value for 64 floats) are set to inf ...)
         self.roots = np.array(
-            [np.float128(r) for r in list(self.wolfram_results["Roots"])]
-        )
-        self.negroots = np.array(
-            [np.float128(r) for r in list(self.wolfram_results["NegRoots"])]
-        )
-        self.eps2 = np.array(
-            [np.float128(r) for r in list(self.wolfram_results["EpsilonSquared"])]
+            [np.float64(r) for r in list(self.wolfram_results["Roots"])]
         )
         self.eps = np.array(
-            [np.float128(r) for r in list(self.wolfram_results["Epsilons"])]
+            [np.float64(r) for r in list(self.wolfram_results["Epsilons"])]
         )
-        self.pm_factors = np.array(
-            [np.float128(r) for r in list(self.wolfram_results["PMFactors"])]
-        )
-        self.poly = np.array(
-            [np.float128(r) for r in list(self.wolfram_results["Poly"])]
-        )
-        self.poly3 = np.array(
-            [np.float128(r) for r in list(self.wolfram_results["Poly3"])]
+        self.effective_norm = np.array(
+            [np.float64(r) for r in list(self.wolfram_results["EffectiveNorm"])]
         )
 
-        self.fendley_gap_direct = float(self.wolfram_results["Epsilons"][0])
+        # NOTE: while the lagrange and pmfactors escalate, there product is luckily more
+        # well behaved; sadly, however we have to calculate the product in mathematica as
+        # the conversion of the individual factors results in getting `inf` values
+        min = np.inf
+        max = 0.0
+        for en in self.effective_norm:
+            if en < min:
+                min = en
+            if en > max:
+                max = en
+        print(f"Effective norms range from {min} to {max}.")
+        min_eps = np.inf
+        max_eps = 0.0
+        for eps in self.eps:
+            if eps < min_eps:
+                min_eps = eps
+            if eps > max_eps:
+                max_eps = eps
+        print(f"Epsilons range from {min_eps} to {max_eps}.")
+
+        self.fendley_gap_direct = self.eps[0]
         self.num_majoranas = 2 * self.num_triangles
 
         self.fendley_h_matrix = np.zeros(
@@ -195,69 +213,35 @@ class Calculation:
             self.num_currents = (self.num_triangles + 1) // 2
 
         start = time.time()
-        self.effective_norm = []
-        for i in range(self.num_triangles):
-            lagrange = 1.0
-            for j in range(self.num_triangles):
-                if i == j:
-                    continue
-                lagrange *= self.roots[j] / (self.roots[j] - self.roots[i])
-                if self.roots[i] == self.roots[j]:
-                    print(
-                        "Warning: roots[i] == roots[j], this may cause numerical instability."
-                    )
-                    print(self.roots[i], self.roots[j])
-                    print(self.wolfram_results["Roots"])
-                    assert False
-            assert np.sign(self.pm_factors[i]) == np.sign(lagrange)
-            effective_norm = np.sqrt(np.abs(self.pm_factors[i])) * np.sqrt(
-                np.abs(lagrange)
-            )
-            self.effective_norm.append(effective_norm)
-        print(f"Calculating effective norms took {time.time() - start:.10f} seconds.")
-
-        # print(self.lagrange)
-        # print(self.norm)
-
-        start = time.time()
-        mus = []
-        for l in range(self.num_currents):
-            l = 1 + 2 * l
-            mul = np.zeros((self.num_triangles, self.num_triangles), dtype=np.float128)
-            for m in range(self.num_triangles):
-                for n in range(self.num_triangles):
-                    mu = (
-                        2
-                        * (-1) ** (((l - 1) // 2) % 2)
-                        * self.effective_norm[m]
-                        * self.effective_norm[n]
-                    )
-                    eps_sum = 0
-                    for i in range(l):
-                        if i % 2 == 0:
-                            eps_sum += self.eps[m] ** i * self.eps[n] ** (l - i)
-                        else:
-                            eps_sum += self.eps[n] ** i * self.eps[m] ** (l - i)
-                    mul[m, n] = mu * eps_sum
-            mus.append(mul)
+        mus = rust_energy.calculate_mus(
+            self.num_currents,
+            self.num_triangles,
+            self.effective_norm,
+            self.eps,
+        )
         print(f"Calculating mus took {time.time() - start:.10f} seconds.")
+        # print(mus)
 
         start = time.time()
         self.hl_matrices = []
         self.hl_norms = []
         for l in range(self.num_currents):
             hl = np.zeros((self.num_majoranas, self.num_majoranas), dtype=np.float128)
-            hl_norm = 0.0
+            hl_norm = np.float128(0.0)
             for m in range(1, self.num_triangles + 1):
                 for n in range(1, self.num_triangles + 1):
-                    mu = mus[l][m - 1, n - 1]
+                    mu = mus[l][(m - 1) * self.num_triangles + n - 1]
                     hl[(2 * m - 1) - 1, (2 * n) - 1] = mu
                     hl[(2 * n) - 1, (2 * m - 1) - 1] = -mu
                     hl_norm += 2 * np.abs(mu)
+                    if hl_norm == np.inf:
+                        print(
+                            "Warning: hl_norm is inf, this may cause numerical instability."
+                        )
+                        assert False
             self.hl_matrices.append(hl)
             self.hl_norms.append(hl_norm)
         print(f"Calculating hl matrices took {time.time() - start:.10f} seconds.")
-
 
     def extend_model(self, currents_weights: list[float], fendley_weight: float):
         """
@@ -275,6 +259,7 @@ class Calculation:
             norm = self.hl_norms[l]
             if norm == 0:
                 norm = 1.0
+            # print(norm)
             self.h_matrix += currents_weights[l] * self.hl_matrices[l] / norm
         print(f"Extending model took {time.time() - start:.10f} seconds.")
 
@@ -388,3 +373,51 @@ def integer_points_to_plot_coordinates(
     shifted = ret_points - lower
     normalized = shifted / total
     return points_to_plot_coordinates(normalized)
+
+    # start = time.time()
+    # self.effective_norm = []
+    # for i in range(self.num_triangles):
+    #     lagrange = np.float128(1.0)
+    #     for j in range(self.num_triangles):
+    #         if i == j:
+    #             continue
+    #         lagrange *= self.roots[j] / (self.roots[j] - self.roots[i])
+    #         if self.roots[i] == self.roots[j]:
+    #             print(
+    #                 "Warning: roots[i] == roots[j], this may cause numerical instability."
+    #             )
+    #             print(self.roots[i], self.roots[j])
+    #             print(self.wolfram_results["Roots"])
+    #             assert False
+    #     assert np.sign(self.pm_factors[i]) == np.sign(lagrange)
+    #     effective_norm = (
+    #         np.sqrt(np.abs(self.pm_factors[i]))
+    #         * np.sqrt(self.poly3norm)
+    #         * np.sqrt(np.abs(lagrange))
+    #     )
+    #     self.effective_norm.append(effective_norm)
+    # print(f"Calculating effective norms took {time.time() - start:.10f} seconds.")
+
+    # mus = []
+    # for l in range(self.num_currents):
+    #     l = 1 + 2 * l
+    #     print(l)
+    #     mul = np.zeros(
+    #         self.num_triangles * self.num_triangles, dtype=np.float128
+    #     )
+    #     for m in range(self.num_triangles):
+    #         for n in range(self.num_triangles):
+    #             mu = np.float128(
+    #                 2
+    #                 * (-1) ** (((l - 1) // 2) % 2)
+    #                 * self.effective_norm[m]
+    #                 * self.effective_norm[n]
+    #             )
+    #             eps_sum = np.float128(0.0)
+    #             for i in range(l):
+    #                 if i % 2 == 0:
+    #                     eps_sum += self.eps[m] ** i * self.eps[n] ** (l - i)
+    #                 else:
+    #                     eps_sum += self.eps[n] ** i * self.eps[m] ** (l - i)
+    #             mul[m * self.num_triangles + n] = mu * eps_sum
+    #     mus.append(mul)

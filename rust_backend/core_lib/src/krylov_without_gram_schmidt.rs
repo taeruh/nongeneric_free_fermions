@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Mutex};
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 

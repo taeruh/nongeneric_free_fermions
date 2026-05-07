@@ -28,7 +28,7 @@ from paulis import Pauli
 def run():
     low_num_triangles = 1
     # up_num_triangles = 8
-    up_num_triangles = 13
+    up_num_triangles = 15
 
     # weight = 1
     # seed = 3

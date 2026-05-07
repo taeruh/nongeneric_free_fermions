@@ -10,13 +10,14 @@ import independence_polynomial
 
 
 def add_currents_phase():
-    num_triangles = 67
-    # alpha = 1.0
-    # beta = 1.0
-    # gamma = 1.0
+    num_triangles = 100
+    # num_triangles = 10
     alpha2 = 1
-    beta2 = 2
-    gamma2 = 7
+    beta2 = 1
+    gamma2 = 1
+    # alpha2 = 4
+    # beta2 = 8
+    # gamma2 = 8
 
     # num_triangles = 18
     # alpha = np.pi
@@ -48,16 +49,15 @@ def add_currents_phase():
     # print(type(calculation.pm_factors[0]))
     # return
     calculation.calculate_hl_matrices()
-    calculation.extend_model([1.0 for _ in calculation.hl_norms], 1.0)
-    calculation.compute_gap()
+    # calculation.extend_model([1.0 for _ in calculation.hl_norms], 1.0)
+    # calculation.compute_gap()
+    # return
     # print(calculation.lagrange)
     # print(calculation.norm)
     # print(calculation.hl_norms)
 
-    return
-
     fendley_weight = 1.0
-    weight = 1.0
+    weight = 1.0 * 10**(10)
     x = [i for i in range(len(calculation.hl_norms) + 1)]
     y = []
     for num_currents in x:
@@ -113,29 +113,32 @@ def currents_phase():
 
     # }}}}
 
-    num_triangles = 15
-    x = np.linspace(0.0, 1, 30)
-    factor = 10 ** (0.0)
-    shared_factor = 10 ** (0)
+    num_triangles = 75
+    alpha2 = 1
+    beta2 = 1
+    gamma2 = 1
+    x = np.linspace(0.0, 500, 20)
+    factor = 10 ** (-1.0)
+    shared_factor = 10 ** (+3.0)
 
     with Wolfram() as wolfram:
         calculation = energy.Calculation(
             num_triangles,
-            1.0**2,
-            1.0**2,
-            1.0**2,
+            alpha2,
+            beta2,
+            gamma2,
             wolfram,
         )
+    return
     calculation.calculate_hl_matrices()
 
     fendley_weight = 1.0
     y = []
     for weight in x:
-        currents_weights = [weight * factor for _ in calculation.hl_norms]
-        fendley_weight = 1.0
-        currents_weights = [weight * shared_factor for weight in currents_weights]
-        fendley_weight = fendley_weight * shared_factor
-        # calculation.extend_model(currents_weights, fendley_weight)
+        currents_weights = [
+            weight * factor * shared_factor for _ in calculation.hl_norms
+        ]
+        fendley_weight = 1.0 * shared_factor
         calculation.extend_model(currents_weights, fendley_weight)
         calculation.compute_gap()
         y.append(calculation.gap)
@@ -150,20 +153,20 @@ def currents_phase():
 
 
 def fendley_phase():
-    num_triangles = 80
+    num_triangles = 50
     # num_triangles = 100
     if num_triangles % 2 == 0:
         num_currents = num_triangles // 2
     else:
         num_currents = (num_triangles + 1) // 2
-    currents_weights = [1.0 for _ in range(num_currents)]
+    currents_weights = [5.0 for _ in range(num_currents)]
     fendley_weight = 1.0
 
     # calculation = energy.Calculation(num_triangles, 1., 0., 0., currents_alpha)
 
     lower = 0
-    upper = 10
-    num_samples = 10
+    upper = 5
+    num_samples = 5
     points = energy.integer_triangle_grid(num_samples, lower, upper)
 
     values = []
@@ -175,12 +178,14 @@ def fendley_phase():
             if vals[0] == 0 and vals[1] == 0:
                 values.append(upper)
                 continue
-            calculation = energy.Calculation(num_triangles, alpha2, beta2, gamma2, wolfram)
+            calculation = energy.Calculation(
+                num_triangles, alpha2, beta2, gamma2, wolfram
+            )
             calculation.calculate_hl_matrices()
-            # currents_weights, fendley_weight = (
-            #     calculation.hl_norms,
-            #     calculation.fendley_norm,
-            # )
+            currents_weights, fendley_weight = (
+                calculation.hl_norms,
+                calculation.fendley_norm,
+            )
             calculation.extend_model(currents_weights, fendley_weight)
             # calculation.extend_model(currents_weights, 0.0)
             # calculation.extend_model([0 for _ in currents_weights], fendley_weight)

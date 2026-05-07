@@ -8,10 +8,10 @@
 #PBS -N nongeneric_free_fermions
 
 # 200h is the maximum, otherwise the job doesn't even get queued
-#PBS -l walltime=20:00:00 
+#PBS -l walltime=80:00:00 
 # see for max possible resource on a single node: https://hpc.research.uts.edu.au/status/
 # (select=1 is probably the default (putting stuff onto one chunk(/host?)))
-#PBS -l select=1:ncpus=20:mem=20GB
+#PBS -l select=1:ncpus=25:mem=15GB
 
 # this is relative to the final workdir which is ./=${PBS_O_WORKDIR}, so we don't have
 # to move it from the scratch
