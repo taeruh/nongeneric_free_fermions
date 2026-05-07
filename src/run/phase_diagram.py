@@ -10,10 +10,13 @@ import independence_polynomial
 
 
 def add_currents_phase():
-    num_triangles = 25
-    alpha = 1.0
-    beta = 1.0
-    gamma = 1.0
+    num_triangles = 67
+    # alpha = 1.0
+    # beta = 1.0
+    # gamma = 1.0
+    alpha2 = 1
+    beta2 = 2
+    gamma2 = 7
 
     # num_triangles = 18
     # alpha = np.pi
@@ -36,19 +39,20 @@ def add_currents_phase():
     with Wolfram() as wolfram:
         calculation = energy.Calculation(
             num_triangles,
-            alpha,
-            beta,
-            gamma,
+            alpha2,
+            beta2,
+            gamma2,
             wolfram,
         )
     # print(calculation.pm_factors)
     # print(type(calculation.pm_factors[0]))
-    return
+    # return
     calculation.calculate_hl_matrices()
+    calculation.extend_model([1.0 for _ in calculation.hl_norms], 1.0)
+    calculation.compute_gap()
     # print(calculation.lagrange)
     # print(calculation.norm)
     # print(calculation.hl_norms)
-
 
     return
 
@@ -146,7 +150,7 @@ def currents_phase():
 
 
 def fendley_phase():
-    num_triangles = 25
+    num_triangles = 80
     # num_triangles = 100
     if num_triangles % 2 == 0:
         num_currents = num_triangles // 2
@@ -157,53 +161,28 @@ def fendley_phase():
 
     # calculation = energy.Calculation(num_triangles, 1., 0., 0., currents_alpha)
 
-    factor = 3.0
+    lower = 0
+    upper = 10
     num_samples = 10
-    # num_samples = 50
-    # points = energy.triangle_grid(num_samples, factor)
-    points = energy.triangle_grid_with_minimum_bound(
-        num_samples, factor, minimum_bound=0.60
-    )
-
-    # with Wolfram() as wolfram:
-    #     calculation = energy.Calculation(
-    #         num_triangles,
-    #         1.0**2,
-    #         1.0**2,
-    #         1.0**2,
-    #         wolfram,
-    #     )
-    #     calculation.calculate_hl_matrices()
-    #     # currents_weights, fendley_weight = (
-    #     #     calculation.hl_norms,
-    #     #     calculation.fendley_norm,
-    #     # )
-    #     calculation.extend_model(currents_weights, fendley_weight)
-    #     calculation.compute_gap()
-    #     print(calculation.hl_norms)
-    #     print(calculation.fendley_norm)
-    #     print(calculation.gap)
-    #     assert False
+    points = energy.integer_triangle_grid(num_samples, lower, upper)
 
     values = []
     with Wolfram() as wolfram:
-        for alpha, beta, gamma in points:
-            print(alpha, beta, gamma)
-            vals = [alpha, beta, gamma]
+        for alpha2, beta2, gamma2 in points:
+            print(alpha2, beta2, gamma2)
+            vals = [alpha2, beta2, gamma2]
             vals.sort()
             if vals[0] == 0 and vals[1] == 0:
-                values.append(factor)
+                values.append(upper)
                 continue
-            calculation = energy.Calculation(
-                num_triangles, alpha, beta, gamma, wolfram
-            )
+            calculation = energy.Calculation(num_triangles, alpha2, beta2, gamma2, wolfram)
             calculation.calculate_hl_matrices()
             # currents_weights, fendley_weight = (
             #     calculation.hl_norms,
             #     calculation.fendley_norm,
             # )
-            # calculation.extend_model(currents_weights, fendley_weight)
-            calculation.extend_model(currents_weights, 0.0)
+            calculation.extend_model(currents_weights, fendley_weight)
+            # calculation.extend_model(currents_weights, 0.0)
             # calculation.extend_model([0 for _ in currents_weights], fendley_weight)
             calculation.compute_gap()
             values.append(calculation.gap)
@@ -212,35 +191,41 @@ def fendley_phase():
 
     # print(values)
 
-    x, y = energy.points_to_plot_coordinates(points)
+    x, y = energy.integer_points_to_plot_coordinates(points, lower, upper)
     triang = tri.Triangulation(x, y)
     _, ax = plt.subplots(figsize=(7, 6))
     values = np.log(values)
-    tpc = ax.tripcolor(triang, values, shading="gouraud")
+    # tpc = ax.tripcolor(triang, values, shading="gouraud")
+    tpc = ax.tripcolor(triang, values, shading="flat", cmap="viridis")
     vertices_bary = np.array(
         [
-            [factor, 0, 0],
-            [0, factor, 0],
-            [0, 0, factor],
-            [factor, 0, 0],  # close the loop
-        ]
+            [1, 0, 0],
+            [0, 1, 0],
+            [0, 0, 1],
+            [1, 0, 0],
+        ],
+        dtype=float,
     )
     vx, vy = energy.points_to_plot_coordinates(vertices_bary)
     ax.plot(vx, vy, lw=1)
 
     def place_label(ax, alpha, beta, gamma, text, **kwargs):
-        x, y = energy.points_to_plot_coordinates(np.array([[alpha, beta, gamma]]))
+        p = np.array([[alpha, beta, gamma]], dtype=float)
+        p = (p - lower) / (upper - lower)
+        x, y = energy.points_to_plot_coordinates(p)
         ax.text(x[0], y[0], text, **kwargs)
 
-    place_label(ax, factor, 0, 0, rf"$\alpha={factor}$", ha="right", va="top")
-    place_label(ax, 0, factor, 0, rf"$\beta={factor}$", ha="left", va="top")
-    place_label(ax, 0, 0, factor, rf"$\gamma={factor}$", ha="center", va="bottom")
-    place_label(ax, factor / 2, factor / 2, 0, r"$\gamma=0$", ha="center", va="top")
-    place_label(ax, factor / 2, 0, factor / 2, r"$\beta=0$", rotation=60, ha="right")
-    place_label(ax, 0, factor / 2, factor / 2, r"$\alpha=0$", rotation=-60, ha="left")
+    place_label(ax, upper, 0, 0, rf"$\alpha={upper}$", ha="right", va="top")
+    place_label(ax, 0, upper, 0, rf"$\beta={upper}$", ha="left", va="top")
+    place_label(ax, 0, 0, upper, rf"$\gamma={upper}$", ha="center", va="bottom")
+    place_label(ax, upper / 2, upper / 2, 0, r"$\gamma=0$", ha="center", va="top")
+    place_label(ax, upper / 2, 0, upper / 2, r"$\beta=0$", rotation=60, ha="right")
+    place_label(ax, 0, upper / 2, upper / 2, r"$\alpha=0$", rotation=-60, ha="left")
     cbar = plt.colorbar(tpc, ax=ax)
     cbar.set_label("Function value")
     ax.set_aspect("equal")
     ax.axis("off")
+    # ax.set_xlim(-0.05, 1.05)
+    # ax.set_ylim(-0.05, np.sqrt(3)/2 + 0.05)
     plt.tight_layout()
     plt.savefig(f"output/phase_diagram_{num_triangles}.pdf")

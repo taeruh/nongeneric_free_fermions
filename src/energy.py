@@ -26,11 +26,11 @@ class Wolfram:
         Coefficients[n_Integer, a_, b_, c_] := Module[
           {
            buf = {{}, {}, {1}},
-           p, pm1, pm2, pm3, f1, f2, f3, i, pmax
+           p, pm1, pm2, pm3, f1, f2, f3, i, pmax, poly, poly3
            },
-          f1 = a^2 + b^2 + c^2;
-          f2 = (a b)^2 + (a c)^2 + (b c)^2;
-          f3 = (a b c)^2;
+          f1 = a + b + c;
+          f2 = a b + a c + b c;
+          f3 = a b c;
           Do[
            pm1 = buf[[Mod[i - 2, 3] + 1]];
            pm2 = buf[[Mod[i - 3, 3] + 1]];
@@ -64,11 +64,17 @@ class Wolfram:
           eps = Sqrt[eps2];
           poly3[x_] := FromDigits[Reverse[poly3coeffs], x];
           pmfactors = poly3 /@ roots;
-          pmfactors = N[pmfactors, {1000, 1000}];
+          pmsigns = Sign[pmfactors];
+          negroots = N[negroots, {100, 100}];
+          roots = N[roots, {100, 100}];
+          eps2 = N[eps2, {100, 100}];
+          eps = N[eps, {100, 100}];
+          pmfactors = N[pmfactors, {100, 100}];
           <|"Roots" -> roots, "NegRoots" -> negroots, "EpsilonSquared" -> eps2,
             "Epsilons" -> eps, "PMFactors" -> pmfactors, "Poly" -> polycoeffs,
-            "Poly3" -> poly3coeffs|>
+            "Poly3" -> poly3coeffs, "PMSigns" -> pmsigns|>
           ]
+          ComputeEpsilons[25, 1, 1, 1
         """)
 
         print("Wolfram session is ready.")
@@ -109,7 +115,7 @@ class Wolfram:
     def __del__(self):
         self.close_session()
 
-    def compute_epsilons(self, num_triangles: int, a: float, b: float, c: float):
+    def compute_epsilons(self, num_triangles: int, a, b, c):
         result = self.session.evaluate(
             f"ComputeEpsilons[{num_triangles}, {a}, {b}, {c}]"
         )
@@ -123,19 +129,29 @@ class Calculation:
     def __init__(
         self,
         num_triangles: int,
-        alpha: float,
-        beta: float,
-        gamma: float,
+        alpha2: float | int,
+        beta2: float | int,
+        gamma2: float | int,
         wolfram: Wolfram,
     ):
+        """
+        Important: alpha2, beta2, gamma2 are the squares of the alpha, beta, gamma
+        parameters in the original Fendley model. For larger number of triangles you want
+        those square values to be integers; otherwise things break numerically when
+        dealing with the polynomials.
+        """
         self.num_triangles = num_triangles
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
+        self.alpha2 = alpha2
+        self.beta2 = beta2
+        self.gamma2 = gamma2
 
+        start = time.time()
         self.wolfram_results = wolfram.compute_epsilons(
-            num_triangles, alpha, beta, gamma
+            num_triangles, alpha2, beta2, gamma2
         )
+        print(f"Wolfram computation took {time.time() - start:.10f} seconds.")
+
+        start = time.time()
         self.roots = np.array(
             [np.float128(r) for r in list(self.wolfram_results["Roots"])]
         )
@@ -158,15 +174,6 @@ class Calculation:
             [np.float128(r) for r in list(self.wolfram_results["Poly3"])]
         )
 
-        # print(self.poly)
-        # print(self.poly3)
-        # print(self.roots)
-        # print(self.negroots)
-        # print(self.eps2)
-        # print(self.eps)
-        # print(self.pm_factors)
-        # print(self.wolfram_results["PMFactors"])
-
         self.fendley_gap_direct = float(self.wolfram_results["Epsilons"][0])
         self.num_majoranas = 2 * self.num_triangles
 
@@ -179,6 +186,7 @@ class Calculation:
             self.fendley_h_matrix[2 * i + 1, 2 * i] = eps
             self.fendley_norm += 2 * abs(eps)
         self.h_matrix = self.fendley_h_matrix.copy()
+        print(f"Processing Wolfram results took {time.time() - start:.10f} seconds.")
 
     def calculate_hl_matrices(self):
         if self.num_triangles % 2 == 0:
@@ -186,7 +194,7 @@ class Calculation:
         else:
             self.num_currents = (self.num_triangles + 1) // 2
 
-        self.lagrange = []
+        start = time.time()
         self.effective_norm = []
         for i in range(self.num_triangles):
             lagrange = 1.0
@@ -201,27 +209,17 @@ class Calculation:
                     print(self.roots[i], self.roots[j])
                     print(self.wolfram_results["Roots"])
                     assert False
-            self.lagrange.append(lagrange)
-            # print(self.pm_factors[i] * lagrange)
-            # print(np.sign(self.pm_factors[i] * lagrange), "should be +1")
-            # print(i)
-            # print(self.pm_factors[i], lagrange)
-            assert np.sign(self.pm_factors[i] * lagrange) == 1
-            effective_norm = (
-                4 * np.sqrt(np.abs(self.pm_factors[i])) * np.sqrt(np.abs(lagrange))
+            assert np.sign(self.pm_factors[i]) == np.sign(lagrange)
+            effective_norm = np.sqrt(np.abs(self.pm_factors[i])) * np.sqrt(
+                np.abs(lagrange)
             )
-            # effective_norm = (
-            #     16 * np.abs(self.pm_factors[i])
-            # )
-            # effective_norm = (
-            #     16 * self.pm_factors[i]
-            # )
             self.effective_norm.append(effective_norm)
-        print("Effective norms:", self.effective_norm)
+        print(f"Calculating effective norms took {time.time() - start:.10f} seconds.")
 
         # print(self.lagrange)
         # print(self.norm)
 
+        start = time.time()
         mus = []
         for l in range(self.num_currents):
             l = 1 + 2 * l
@@ -229,8 +227,8 @@ class Calculation:
             for m in range(self.num_triangles):
                 for n in range(self.num_triangles):
                     mu = (
-                        (-1) ** (((l - 1) // 2) % 2)
-                        / 8
+                        2
+                        * (-1) ** (((l - 1) // 2) % 2)
                         * self.effective_norm[m]
                         * self.effective_norm[n]
                     )
@@ -242,7 +240,9 @@ class Calculation:
                             eps_sum += self.eps[n] ** i * self.eps[m] ** (l - i)
                     mul[m, n] = mu * eps_sum
             mus.append(mul)
+        print(f"Calculating mus took {time.time() - start:.10f} seconds.")
 
+        start = time.time()
         self.hl_matrices = []
         self.hl_norms = []
         for l in range(self.num_currents):
@@ -256,20 +256,8 @@ class Calculation:
                     hl_norm += 2 * np.abs(mu)
             self.hl_matrices.append(hl)
             self.hl_norms.append(hl_norm)
+        print(f"Calculating hl matrices took {time.time() - start:.10f} seconds.")
 
-        # for h, norm in zip(self.hl_matrices, self.hl_norms):
-        #     h = h / norm
-        #     norm = 0.0
-        #     for i in range(self.num_majoranas):
-        #         for j in range(self.num_majoranas):
-        #             norm += abs(h[i, j])
-        #     print(norm)
-        # h = self.fendley_h_matrix / self.fendley_norm
-        # norm = 0.0
-        # for i in range(self.num_majoranas):
-        #     for j in range(self.num_majoranas):
-        #         norm += abs(h[i, j])
-        # print(norm)
 
     def extend_model(self, currents_weights: list[float], fendley_weight: float):
         """
@@ -278,6 +266,7 @@ class Calculation:
         h matrix (i.e., effectively it sets fendley_weight to self.fendley_h_norm)
         """
         assert self.num_currents == len(currents_weights)
+        start = time.time()
         norm = self.fendley_norm
         if norm == 0:
             norm = 1.0
@@ -287,8 +276,10 @@ class Calculation:
             if norm == 0:
                 norm = 1.0
             self.h_matrix += currents_weights[l] * self.hl_matrices[l] / norm
+        print(f"Extending model took {time.time() - start:.10f} seconds.")
 
     def compute_gap(self):
+        start = time.time()
         norm = np.linalg.norm(self.h_matrix)
         if abs(norm) == 0:
             norm = 1.0
@@ -301,6 +292,7 @@ class Calculation:
             return
         min_abs_lm = min(abs(x) for _, x in lm_pairs)
         self.gap = min_abs_lm * norm
+        print(f"Computing gap took {time.time() - start:.10f} seconds.")
 
 
 def skew_diagonalise(
@@ -365,13 +357,19 @@ def triangle_grid_with_minimum_bound(
     return np.array(points)
 
 
-def triangle_grid_no_edge(num_samples: int, factor: float = 3):
-    points = triangle_grid(num_samples, factor)
-    to_remove = []
-    for i, point in enumerate(points):
-        if point[0] == 0 or point[1] == 0 or point[2] == 0:
-            to_remove.append(i)
-    return np.delete(points, to_remove, axis=0)
+def integer_triangle_grid(num_samples: int, lower: int, upper: int) -> list[list[int]]:
+    assert lower >= 0
+    assert upper >= lower
+    assert (upper - lower) % num_samples == 0
+    points = []
+    for i in range(num_samples + 1):
+        for j in range(num_samples + 1 - i):
+            k = num_samples - i - j
+            alpha = lower + i * (upper - lower) // num_samples
+            beta = lower + j * (upper - lower) // num_samples
+            gamma = lower + k * (upper - lower) // num_samples
+            points.append([alpha, beta, gamma])
+    return points
 
 
 def points_to_plot_coordinates(points: NDArray) -> tuple[NDArray, NDArray]:
@@ -380,3 +378,13 @@ def points_to_plot_coordinates(points: NDArray) -> tuple[NDArray, NDArray]:
     c = np.array([0.5, np.sqrt(3) / 2])
     xy = points[:, 0, None] * a + points[:, 1, None] * b + points[:, 2, None] * c
     return xy[:, 0], xy[:, 1]
+
+
+def integer_points_to_plot_coordinates(
+    points: list[list[int]], lower: int, upper: int
+) -> tuple[NDArray, NDArray]:
+    ret_points = np.array(points, dtype=float)
+    total = upper - lower
+    shifted = ret_points - lower
+    normalized = shifted / total
+    return points_to_plot_coordinates(normalized)
