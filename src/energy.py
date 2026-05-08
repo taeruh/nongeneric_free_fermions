@@ -156,7 +156,7 @@ class Calculation:
         self.wolfram_results = wolfram.compute_epsilons(
             num_triangles, alpha2, beta2, gamma2
         )
-        print(f"Wolfram computation took {time.time() - start:.10f} seconds.")
+        # print(f"Wolfram computation took {time.time() - start:.10f} seconds.")
 
         start = time.time()
         # NOTE: no point in using np.float128 here, since it seems that the values get
@@ -182,7 +182,7 @@ class Calculation:
                 min = en
             if en > max:
                 max = en
-        print(f"Effective norms range from {min} to {max}.")
+        # print(f"Effective norms range from {min} to {max}.")
         min_eps = np.inf
         max_eps = 0.0
         for eps in self.eps:
@@ -190,7 +190,7 @@ class Calculation:
                 min_eps = eps
             if eps > max_eps:
                 max_eps = eps
-        print(f"Epsilons range from {min_eps} to {max_eps}.")
+        # print(f"Epsilons range from {min_eps} to {max_eps}.")
 
         self.fendley_gap_direct = self.eps[0]
         self.num_majoranas = 2 * self.num_triangles
@@ -204,7 +204,7 @@ class Calculation:
             self.fendley_h_matrix[2 * i + 1, 2 * i] = eps
             self.fendley_norm += 2 * abs(eps)
         self.h_matrix = self.fendley_h_matrix.copy()
-        print(f"Processing Wolfram results took {time.time() - start:.10f} seconds.")
+        # print(f"Processing Wolfram results took {time.time() - start:.10f} seconds.")
 
     def calculate_hl_matrices(self):
         if self.num_triangles % 2 == 0:
@@ -219,7 +219,7 @@ class Calculation:
             self.effective_norm,
             self.eps,
         )
-        print(f"Calculating mus took {time.time() - start:.10f} seconds.")
+        # print(f"Calculating mus took {time.time() - start:.10f} seconds.")
         # print(mus)
 
         start = time.time()
@@ -241,7 +241,7 @@ class Calculation:
                         assert False
             self.hl_matrices.append(hl)
             self.hl_norms.append(hl_norm)
-        print(f"Calculating hl matrices took {time.time() - start:.10f} seconds.")
+        # print(f"Calculating hl matrices took {time.time() - start:.10f} seconds.")
 
     def extend_model(self, currents_weights: list[float], fendley_weight: float):
         """
@@ -261,7 +261,7 @@ class Calculation:
                 norm = 1.0
             # print(norm)
             self.h_matrix += currents_weights[l] * self.hl_matrices[l] / norm
-        print(f"Extending model took {time.time() - start:.10f} seconds.")
+        # print(f"Extending model took {time.time() - start:.10f} seconds.")
 
     def compute_gap(self):
         start = time.time()
@@ -277,7 +277,7 @@ class Calculation:
             return
         min_abs_lm = min(abs(x) for _, x in lm_pairs)
         self.gap = min_abs_lm * norm
-        print(f"Computing gap took {time.time() - start:.10f} seconds.")
+        # print(f"Computing gap took {time.time() - start:.10f} seconds.")
 
 
 def skew_diagonalise(
