@@ -277,7 +277,7 @@ class Calculation:
         # get_lamda_pairs_assume_exact
 
         # smoothen_lamda(lm)
-        # lm_pairs = get_lamda_pairs(lm)
+        # lm_pairs = get_lamda_pairs(lm, eps=1e-5)
         lm_pairs = get_lamda_pairs_assume_exact(lm)
         if len(lm_pairs) == 0:
             self.gap = 0.0
@@ -293,6 +293,8 @@ def skew_diagonalise(
     """return (Lambda, K) such that h = K lambda K^dagger"""
     lm, km = linalg.schur(h, output="real")  # pyright: ignore
     assert np.allclose(h, km @ lm @ km.T)
+    # interesting: I think the lambda values in lm are ordered (decreasing w.r.t. the
+    # absolute value)
     return lm, km  # pyright: ignore
 
 

@@ -180,9 +180,7 @@ def get_phase_diagram():
         ax.plot(vx, vy, lw=1)
 
         def place_label(ax, alpha, beta, gamma, text, **kwargs):
-            x, y = energy.points_to_plot_coordinates(
-                np.array([[alpha, beta, gamma]])
-            )
+            x, y = energy.points_to_plot_coordinates(np.array([[alpha, beta, gamma]]))
             ax.text(x[0], y[0], text, **kwargs)
 
         place_label(ax, factor, 0, 0, rf"$\alpha={factor}$", ha="right", va="top")
@@ -278,11 +276,19 @@ def test_t():
 
 
 def run():
-    num_triangles = 3
-    fendley = Fendley(num_triangles)
+    num_triangles = 10
+    fendley = Fendley(
+        num_triangles, ConstantWeight(1), ConstantWeight(0), ConstantWeight(0)
+    )
     simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"][0]
     generators = Generators((1.0, simplicial_mode), fendley.hamiltonian)
     generators.init_eta_currents()
+
+    for current in generators.eta_currents:
+        print([f"{w:.2f}, {op.to_string()}" for w, op in current.to_py_list()])
+    print(len(generators.eta_currents))
+
+    return
 
     fendley_extended = fendley.clone()
     fendley_extended.extend_with_currents(

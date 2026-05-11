@@ -94,14 +94,22 @@ def currents_phase():
     # shared_factor = 10 ** (0.0)
     # x = x * factor
 
+    # num_triangles = 100
+    # alpha2 = 1
+    # beta2 = 1
+    # gamma2 = 1
+    # x = np.linspace(1.509865+80.5e-8, 1.509865+81e-8, 100)
+    # factor = 10 ** (0.0)
+    # shared_factor = 10 ** (0.0)
+    # x = x * factor
+
     # }}}}
 
-    num_triangles = 25
+    num_triangles = 20
     alpha2 = 1
     beta2 = 1
     gamma2 = 1
-    # x = np.linspace(0.715, 0.740, 200)
-    x = np.linspace(0.0, 1000000000000, 100)
+    x = np.linspace(0, 5000, 300)
     factor = 10 ** (0.0)
     shared_factor = 10 ** (0.0)
     x = x * factor
@@ -126,9 +134,11 @@ def currents_phase():
         #     calculation.fendley_norm,
         # )
         calculation.extend_model(currents_weights, fendley_weight)
+        # print(calculation.h_matrix)
         calculation.compute_gap()
         y.append(calculation.gap)
         print(calculation.gap)
+        # print()
 
     _, ax = plt.subplots()
     ax.plot(x, y)
@@ -155,10 +165,21 @@ def phase_diagram_calculation(
 
     values = []
     for alpha2, beta2, gamma2 in points:
-        print(alpha2, beta2, gamma2)
+        # print(alpha2, beta2, gamma2)
         vals = [alpha2, beta2, gamma2]
         vals.sort()
-        # things break in this case, but we know what the gap is
+        # all vertices are independent so the gap is just the vertex weight
+        # NOTE: this actually not completely trivial with the currents; the currents are
+        # not actually zero in this case, so they add something EDIT: this case behaves
+        # very differently in general, because then we only get 2 etas in the krylov basis
+        # (instead of 2alpha(-1)); this then gives us a single current which is just the
+        # first vertex (or second or third, depending on which weight is nonzero) but with
+        # twice the weight, so in total the first vertex just has three times its original
+        # weight and the rest remains the same; but then the graph is still an independent
+        # set, so the energy epsilons are still just the weights of the (new) graph, and
+        # since the absolute value of the first value only increasing, its epsilon is the
+        # largest and with that not the gap, so the gap is the same as before with the
+        # currents
         if vals[0] == 0 and vals[1] == 0:
             corner_gap = np.sqrt(vals[2]) * fendley_weight
             values.append(corner_gap)
@@ -175,16 +196,17 @@ def phase_diagram_calculation(
         # print(alpha, beta, gamma)
         # print(alpha, beta, gamma, calculation.gap)
 
-    print("Tripoint gap:", tripoint_gap)
-    print("Corner gap:", corner_gap)
+    # print("Tripoint gap:", tripoint_gap)
+    # print("Corner gap:", corner_gap)
+    print(f"{currents_weights[0]}, {tripoint_gap}, {corner_gap}")
 
     # print(values)
 
     x, y = energy.integer_points_to_plot_coordinates(points, lower, upper)
     triang = tri.Triangulation(x, y)
     fig, ax = plt.subplots(figsize=(7, 6))
-    islog = False
-    # islog = True
+    # islog = False
+    islog = True
     if islog:
         values = np.log(values)
     tpc = ax.tripcolor(triang, values, shading="gouraud")
@@ -296,9 +318,6 @@ def phase_diagram_calculation(
 
 def run_config(config):
     num_triangles, currents_weight, fendley_weight, lower, upper = config
-    print(
-        f"num_triangles={num_triangles}, currents_weight={currents_weight}, fendley_weight={fendley_weight}, lower={lower}, upper={upper}"
-    )
     if num_triangles % 2 == 0:
         num_currents = num_triangles // 2
     else:
@@ -312,7 +331,7 @@ def run_config(config):
             lower,
             upper,
             upper - lower,
-            f"phase_examples2/num_triangles_{num_triangles}_currents_weight_{currents_weight}_fendley_weight_{fendley_weight}_lower_{lower}_upper_{upper}",
+            f"phase_examples3/num_triangles_{num_triangles}_currents_weight_{currents_weight}_fendley_weight_{fendley_weight}_lower_{lower}_upper_{upper}",
         )
 
 
@@ -357,146 +376,26 @@ def fendley_phase():
     #     f"fendley_phase_{num_triangles}",
     # )
 
-    # os.makedirs("output/phase_examples", exist_ok=True)
-    os.makedirs("output/phase_examples2", exist_ok=True)
-    configs = [
-        # (25, 0.900, 1.0, 1, 20),
-        # (25, 0.902, 1.0, 1, 20),
-        # (25, 0.904, 1.0, 1, 20),
-        # (25, 0.906, 1.0, 1, 20),
-        # (25, 0.908, 1.0, 1, 20),
-        # (25, 0.910, 1.0, 1, 20),
-        # (25, 0.912, 1.0, 1, 20),
-        # (25, 0.914, 1.0, 1, 20),
-        # (25, 0.916, 1.0, 1, 20),
-        # (25, 0.918, 1.0, 1, 20),
-        # (25, 0.920, 1.0, 1, 20),
-        # (25, 0.922, 1.0, 1, 20),
-        # (25, 0.924, 1.0, 1, 20),
-        # (25, 0.926, 1.0, 1, 20),
-        # (25, 0.928, 1.0, 1, 20),
-        # (25, 0.930, 1.0, 1, 20),
-        # (25, 0.932, 1.0, 1, 20),
-        # (25, 0.934, 1.0, 1, 20),
-        # (25, 0.936, 1.0, 1, 20),
-        # (25, 0.938, 1.0, 1, 20),
-        # (25, 0.940, 1.0, 1, 20),
-        # (25, 0.942, 1.0, 1, 20),
-        # (25, 0.944, 1.0, 1, 20),
-        # (25, 0.946, 1.0, 1, 20),
-        # (25, 0.948, 1.0, 1, 20),
-        # (25, 0.950, 1.0, 1, 20),
-        # (25, 0.952, 1.0, 1, 20),
-        # (25, 0.954, 1.0, 1, 20),
-        # (25, 0.956, 1.0, 1, 20),
-        # (25, 0.958, 1.0, 1, 20),
-        # (25, 0.960, 1.0, 1, 20),
-        # (25, 0.962, 1.0, 1, 20),
-        # (25, 0.964, 1.0, 1, 20),
-        # (25, 0.966, 1.0, 1, 20),
-        # (25, 0.968, 1.0, 1, 20),
-        # (25, 0.970, 1.0, 1, 20),
-        # (25, 0.972, 1.0, 1, 20),
-        # (25, 0.974, 1.0, 1, 20),
-        # (25, 0.976, 1.0, 1, 20),
-        # (25, 0.978, 1.0, 1, 20),
-        # (25, 0.980, 1.0, 1, 20),
-        # (25, 0.982, 1.0, 1, 20),
-        # (25, 0.984, 1.0, 1, 20),
-        # (25, 0.986, 1.0, 1, 20),
-        # (25, 0.988, 1.0, 1, 20),
-        # (25, 0.990, 1.0, 1, 20),
-        # (25, 0.992, 1.0, 1, 20),
-        # (25, 0.994, 1.0, 1, 20),
-        # (25, 0.996, 1.0, 1, 20),
-        # (25, 0.998, 1.0, 1, 20),
-        # (25, 1.000, 1.0, 1, 20),
-        # (25, 1.002, 1.0, 1, 20),
-        # (25, 1.004, 1.0, 1, 20),
-        # (25, 1.006, 1.0, 1, 20),
-        # (25, 1.008, 1.0, 1, 20),
-        # (25, 1.010, 1.0, 1, 20),
-        # (25, 1.012, 1.0, 1, 20),
-        # (25, 1.014, 1.0, 1, 20),
-        # (25, 1.016, 1.0, 1, 20),
-        # (25, 1.018, 1.0, 1, 20),
-        # (25, 1.020, 1.0, 1, 20),
-        # (25, 1.022, 1.0, 1, 20),
-        # (25, 1.024, 1.0, 1, 20),
-        # (25, 1.026, 1.0, 1, 20),
-        # (25, 1.028, 1.0, 1, 20),
-        # (25, 1.030, 1.0, 1, 20),
-        # (25, 1.032, 1.0, 1, 20),
-        # (25, 1.034, 1.0, 1, 20),
-        # (25, 1.036, 1.0, 1, 20),
-        # (25, 1.038, 1.0, 1, 20),
-        # (25, 1.040, 1.0, 1, 20),
-        ########################
-        # (25, 0.0, 1.0, 1, 20),
-        # (25, 0.05, 1.0, 1, 20),
-        # (25, 0.10, 1.0, 1, 20),
-        # (25, 0.15, 1.0, 1, 20),
-        # (25, 0.20, 1.0, 1, 20),
-        # (25, 0.25, 1.0, 1, 20),
-        # (25, 0.30, 1.0, 1, 20),
-        (25, 0.35, 1.0, 1, 20),
-        # (25, 0.40, 1.0, 1, 20),
-        # (25, 0.45, 1.0, 1, 20),
-        # (25, 0.50, 1.0, 1, 20),
-        # (25, 0.55, 1.0, 1, 20),
-        # (25, 0.50, 1.0, 1, 20),
-        # (25, 0.65, 1.0, 1, 20),
-        # (25, 0.65, 1.0, 1, 20),
-        # (25, 0.70, 1.0, 1, 20),
-        # (25, 0.75, 1.0, 1, 20),
-        # (25, 0.80, 1.0, 1, 20),
-        # (25, 0.85, 1.0, 1, 20),
-        # (25, 0.90, 1.0, 1, 20),
-        # (25, 0.95, 1.0, 1, 20),
-        # (25, 1.00, 1.0, 1, 20),
-        # (25, 1.05, 1.0, 1, 20),
-        # (25, 1.10, 1.0, 1, 20),
-        # (25, 1.15, 1.0, 1, 20),
-        # (25, 1.25, 1.0, 1, 20),
-        # (25, 1.20, 1.0, 1, 20),
-        # (25, 1.30, 1.0, 1, 20),
-        # (25, 1.35, 1.0, 1, 20),
-        # (25, 1.40, 1.0, 1, 20),
-        # (25, 1.45, 1.0, 1, 20),
-        # (25, 1.50, 1.0, 1, 20),
-        # (25, 1.55, 1.0, 1, 20),
-        # (25, 1.60, 1.0, 1, 20),
-        # (25, 1.65, 1.0, 1, 20),
-        # (25, 1.70, 1.0, 1, 20),
-        # (25, 1.75, 1.0, 1, 20),
-        # (25, 1.80, 1.0, 1, 20),
-        # (25, 1.85, 1.0, 1, 20),
-        # (25, 1.90, 1.0, 1, 20),
-        # (25, 1.95, 1.0, 1, 20),
-        # (25, 2.00, 1.0, 1, 20),
-    ]
+    os.makedirs("output/phase_examples3", exist_ok=True)
+    configs = [(5, 0.5 * x, 1.0, 1, 40) for x in range(40 + 1)]
 
-    # with Wolfram() as wolfram:
-    #     for num_triangles, currents_weight, fendley_weight, lower, upper in configs:
-    #         print(
-    #             f"num_triangles={num_triangles}, currents_weight={currents_weight}, fendley_weight={fendley_weight}, lower={lower}, upper={upper}"
-    #         )
-    #         if num_triangles % 2 == 0:
-    #             num_currents = num_triangles // 2
-    #         else:
-    #             num_currents = (num_triangles + 1) // 2
-    #         phase_diagram_calculation(
-    #             wolfram,
-    #             num_triangles,
-    #             [currents_weight for _ in range(num_currents)],
-    #             fendley_weight,
-    #             lower,
-    #             upper,
-    #             upper - lower,
-    #             f"phase_examples/num_triangles_{num_triangles}_currents_weight_{currents_weight}_fendley_weight_{fendley_weight}_lower_{lower}_upper_{upper}",
-    #         )
+    with Wolfram() as wolfram:
+        for num_triangles, currents_weight, fendley_weight, lower, upper in configs:
+            if num_triangles % 2 == 0:
+                num_currents = num_triangles // 2
+            else:
+                num_currents = (num_triangles + 1) // 2
+            phase_diagram_calculation(
+                wolfram,
+                num_triangles,
+                [currents_weight for _ in range(num_currents)],
+                fendley_weight,
+                lower,
+                upper,
+                upper - lower,
+                f"phase_examples3/num_triangles_{num_triangles}_currents_weight_{currents_weight}_fendley_weight_{fendley_weight}_lower_{lower}_upper_{upper}",
+            )
 
-    from multiprocessing import Pool
-
-    with Pool() as pool:
-        pool.map(run_config, configs)
+    # from multiprocessing import Pool
+    # with Pool() as pool:
+    #     pool.map(run_config, configs)
