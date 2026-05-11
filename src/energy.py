@@ -270,8 +270,15 @@ class Calculation:
             norm = 1.0
         majorana_matrix_normalized = self.h_matrix / norm
         lm, _ = skew_diagonalise(majorana_matrix_normalized)
-        smoothen_lamda(lm)
-        lm_pairs = get_lamda_pairs(lm)
+
+        # NOTE: if there are strange things happening with the gap, e.g., jumps in the 1d
+        # currents_phase plot, try to adjust the eps in smoothen_lamda and
+        # get_lambda_pairs and/or switch between get_lamda_pairs and
+        # get_lamda_pairs_assume_exact
+
+        # smoothen_lamda(lm)
+        # lm_pairs = get_lamda_pairs(lm)
+        lm_pairs = get_lamda_pairs_assume_exact(lm)
         if len(lm_pairs) == 0:
             self.gap = 0.0
             return
@@ -289,7 +296,7 @@ def skew_diagonalise(
     return lm, km  # pyright: ignore
 
 
-def smoothen_lamda(lm: NDArray[np.float64], eps: float = 1e-12) -> None:
+def smoothen_lamda(lm: NDArray[np.float64], eps: float = 1e-32) -> None:
     dims = lm.shape
     for i in range(dims[0]):
         for j in range(dims[1]):
@@ -297,18 +304,36 @@ def smoothen_lamda(lm: NDArray[np.float64], eps: float = 1e-12) -> None:
                 lm[i, j] = 0.0
 
 
-def get_lamda_pairs(lm: NDArray[np.float64]) -> list[tuple[tuple[int, int], float]]:
+def get_lamda_pairs_assume_exact(
+    lm: NDArray[np.float64],
+) -> list[tuple[tuple[int, int], float]]:
     dims = lm.shape
     lm_pairs = []
     i = 0
-    while i < dims[0]:
-        for j in range(dims[1]):
-            x = lm[i, j]
-            if x != 0.0:
-                assert np.isclose(x, -lm[i + 1, j - 1])
-                lm_pairs.append(((i, i + 1), x))
-                i += 1
-                break
+    while i < dims[0] - 1:
+        j = i + 1
+        x = lm[i, j]
+        if x != 0.0:
+            assert np.isclose(x, -lm[i + 1, j - 1])
+            lm_pairs.append(((i, i + 1), x))
+            i += 1
+        i += 1
+    return lm_pairs
+
+
+def get_lamda_pairs(
+    lm: NDArray[np.float64], eps: float = 1e-32
+) -> list[tuple[tuple[int, int], float]]:
+    dims = lm.shape
+    lm_pairs = []
+    i = 0
+    while i < dims[0] - 1:
+        j = i + 1
+        x = lm[i, j]
+        if not np.abs(x) < eps:
+            assert np.isclose(x, -lm[i + 1, j - 1])
+            lm_pairs.append(((i, i + 1), x))
+            i += 1
         i += 1
     return lm_pairs
 

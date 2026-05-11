@@ -96,13 +96,13 @@ def currents_phase():
 
     # }}}}
 
-    num_triangles = 300
+    num_triangles = 25
     alpha2 = 1
     beta2 = 1
     gamma2 = 1
     # x = np.linspace(0.715, 0.740, 200)
-    x = np.linspace(0.0, 1, 10)
-    factor = 10 ** (1.0)
+    x = np.linspace(0.0, 1000000000000, 100)
+    factor = 10 ** (0.0)
     shared_factor = 10 ** (0.0)
     x = x * factor
 
@@ -119,8 +119,8 @@ def currents_phase():
     fendley_weight = 1.0
     y = []
     for weight in x:
-        currents_weights = [weight * 0 * shared_factor for _ in calculation.hl_norms]
-        fendley_weight = 1.0 * shared_factor
+        currents_weights = [weight * 1.0 * shared_factor for _ in calculation.hl_norms]
+        # fendley_weight = 1.0 * shared_factor
         # currents_weights, fendley_weight = (
         #     calculation.hl_norms,
         #     calculation.fendley_norm,
