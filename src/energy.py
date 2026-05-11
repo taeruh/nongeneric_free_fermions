@@ -245,22 +245,22 @@ class Calculation:
 
     def extend_model(self, currents_weights: list[float], fendley_weight: float):
         """
-        the original fendley h matrix and the currents hl matrices are both normalized;
-        fendley_weight is None this normalization is automatically undone for the fendley
-        h matrix (i.e., effectively it sets fendley_weight to self.fendley_h_norm)
+        the original currents hl matrices are normalized such that they have the same norm
+        as the original fendley h matrix
         """
         assert self.num_currents == len(currents_weights)
         start = time.time()
-        norm = self.fendley_norm
-        if norm == 0:
-            norm = 1.0
-        self.h_matrix = fendley_weight * self.fendley_h_matrix / norm
+        self.h_matrix = fendley_weight * self.fendley_h_matrix
+        fendley_norm = self.fendley_norm
+        if fendley_norm == 0:
+            fendley_norm = 1.0
         for l in range(self.num_currents):
             norm = self.hl_norms[l]
             if norm == 0:
                 norm = 1.0
-            # print(norm)
-            self.h_matrix += currents_weights[l] * self.hl_matrices[l] / norm
+            self.h_matrix += (
+                currents_weights[l] * self.hl_matrices[l] * fendley_norm / norm
+            )
         # print(f"Extending model took {time.time() - start:.10f} seconds.")
 
     def compute_gap(self):

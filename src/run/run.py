@@ -280,7 +280,7 @@ def test_t():
 def run():
     num_triangles = 3
     fendley = Fendley(num_triangles)
-    simplicial_mode = fendley.example_simplicial_modes["IIIIX"][0]
+    simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"][0]
     generators = Generators((1.0, simplicial_mode), fendley.hamiltonian)
     generators.init_eta_currents()
 
