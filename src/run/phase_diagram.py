@@ -169,30 +169,43 @@ def phase_diagram_calculation(
         vals = [alpha2, beta2, gamma2]
         vals.sort()
         # all vertices are independent so the gap is just the vertex weight
-        # NOTE: this actually not completely trivial with the currents; the currents are
-        # not actually zero in this case, so they add something EDIT: this case behaves
-        # very differently in general, because then we only get 2 etas in the krylov basis
-        # (instead of 2alpha(-1)); this then gives us a single current which is just the
-        # first vertex (or second or third, depending on which weight is nonzero) but with
-        # twice the weight, so in total the first vertex just has three times its original
-        # weight and the rest remains the same; but then the graph is still an independent
-        # set, so the energy epsilons are still just the weights of the (new) graph, and
-        # since the absolute value of the first value only increasing, its epsilon is the
-        # largest and with that not the gap, so the gap is the same as before with the
-        # currents
+        # NOTE: this actually not that simple with the currents; the currents are not
+        # actually zero in this case, so they add something
+        # EDIT: this case behaves very differently in general, because then we only get 2
+        # etas in the krylov basis (instead of 2alpha(-1)); this then gives us a single
+        # current which is just the first vertex (or second or third, depending on which
+        # weight is nonzero) but with twice the weight (with the same sign); so for
+        # positive currents_weight[0] the gap does not change, but for negative it may
+        # change, e.g., if we choose currents_weight[0] = -fendley_weight / num_triangles
+        # then the resulting first vertex weight is zero!
         if vals[0] == 0 and vals[1] == 0:
-            corner_gap = np.sqrt(vals[2]) * fendley_weight
-            values.append(corner_gap)
-            continue
-        calculation = energy.Calculation(num_triangles, alpha2, beta2, gamma2, wolfram)
-        calculation.calculate_hl_matrices()
-        calculation.extend_model(currents_weights, fendley_weight)
-        calculation.compute_gap()
-        values.append(calculation.gap)
+            fendley_vertex_weight = np.sqrt(vals[2])
+            fendley_norm = num_triangles * fendley_vertex_weight
+            currents_vertex_weight = 2 * fendley_vertex_weight
+            currents_norm = currents_vertex_weight
+            first_vertex_weight = (
+                fendley_weight * fendley_vertex_weight
+                + currents_weights[0]
+                * currents_vertex_weight
+                * fendley_norm
+                / currents_norm
+            )
+            other_vertex_weight = fendley_weight * fendley_vertex_weight
+            print("Vertex weights:", first_vertex_weight, other_vertex_weight)
+            gap = min(abs(first_vertex_weight), abs(other_vertex_weight))
+        else:
+            calculation = energy.Calculation(
+                num_triangles, alpha2, beta2, gamma2, wolfram
+            )
+            calculation.calculate_hl_matrices()
+            calculation.extend_model(currents_weights, fendley_weight)
+            calculation.compute_gap()
+            gap = calculation.gap
+        values.append(gap)
         if alpha2 == beta2 == gamma2:
-            tripoint_gap = calculation.gap
+            tripoint_gap = gap
         if alpha2 == lower and beta2 == lower:
-            corner_gap = calculation.gap
+            corner_gap = gap
         # print(alpha, beta, gamma)
         # print(alpha, beta, gamma, calculation.gap)
 
@@ -205,8 +218,8 @@ def phase_diagram_calculation(
     x, y = energy.integer_points_to_plot_coordinates(points, lower, upper)
     triang = tri.Triangulation(x, y)
     fig, ax = plt.subplots(figsize=(7, 6))
-    # islog = False
-    islog = True
+    islog = False
+    # islog = True
     if islog:
         values = np.log(values)
     tpc = ax.tripcolor(triang, values, shading="gouraud")
@@ -337,20 +350,19 @@ def run_config(config):
 
 def fendley_phase():
 
-    # with Wolfram() as wolfram:
-    #     phase_diagram_calculation(
-    #         wolfram,
-    #         num_triangles=25,
-    #         currents_weights=[1.0 + 0.101 for _ in range(13)],
-    #         # currents_weights=[0.3 for _ in range(15)],
-    #         fendley_weight=1.0,
-    #         # fendley_weight=0.0,
-    #         lower=1,
-    #         upper=20,
-    #         num_samples=19,
-    #         file_name="test",
-    #     )
-    # return
+    with Wolfram() as wolfram:
+        phase_diagram_calculation(
+            wolfram,
+            num_triangles=20,
+            # currents_weights=[+1.0 / 5 for _ in range(3)],
+            currents_weights=[-1.0 / 20 for _ in range(10)],
+            fendley_weight=1.0,
+            lower=0,
+            upper=20,
+            num_samples=20,
+            file_name="test",
+        )
+    return
 
     # num_triangles = 30
     # # num_triangles = 100

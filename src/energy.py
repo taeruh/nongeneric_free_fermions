@@ -202,7 +202,7 @@ class Calculation:
         for i, eps in enumerate(self.eps):
             self.fendley_h_matrix[2 * i, 2 * i + 1] = -eps
             self.fendley_h_matrix[2 * i + 1, 2 * i] = eps
-            self.fendley_norm += 2 * abs(eps)
+            self.fendley_norm += abs(eps)
         self.h_matrix = self.fendley_h_matrix.copy()
         # print(f"Processing Wolfram results took {time.time() - start:.10f} seconds.")
 
@@ -233,7 +233,7 @@ class Calculation:
                     mu = mus[l][(m - 1) * self.num_triangles + n - 1]
                     hl[(2 * m - 1) - 1, (2 * n) - 1] = mu
                     hl[(2 * n) - 1, (2 * m - 1) - 1] = -mu
-                    hl_norm += 2 * np.abs(mu)
+                    hl_norm += np.abs(mu)
                     if hl_norm == np.inf:
                         print(
                             "Warning: hl_norm is inf, this may cause numerical instability."
