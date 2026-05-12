@@ -2,14 +2,18 @@
 
 import os
 from run import run, num_claws, num_vertices, phase_diagram
+from run import final
 
 
 def main():
 
     os.makedirs("output", exist_ok=True)
 
+    # final.currents_phase.run()
+    final.triangle_phase.run()
+
     # test()
-    phase_diagram.fendley_phase()
+    # phase_diagram.fendley_phase()
     # phase_diagram.add_currents_phase()
     # phase_diagram.currents_phase()
     # num_claws.run()

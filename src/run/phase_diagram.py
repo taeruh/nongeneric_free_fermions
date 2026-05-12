@@ -105,14 +105,14 @@ def currents_phase():
 
     # }}}}
 
-    num_triangles = 20
+    num_triangles = 5
     alpha2 = 1
     beta2 = 1
     gamma2 = 1
-    x = np.linspace(0, 5000, 300)
+    x = np.linspace(-1, 3, 50)
     factor = 10 ** (0.0)
     shared_factor = 10 ** (0.0)
-    x = x * factor
+    x = 10**x * factor
 
     with Wolfram() as wolfram:
         calculation = energy.Calculation(
@@ -123,6 +123,19 @@ def currents_phase():
             wolfram,
         )
     calculation.calculate_hl_matrices()
+
+    cm = np.zeros_like(calculation.hl_matrices[0])
+    for m, norm in zip(calculation.hl_matrices, calculation.hl_norms):
+        cm += m * norm
+    lm, _ = energy.skew_diagonalise(cm)
+    # energy.smoothen_lamda(lm)
+    lm_pairs = energy.get_lamda_pairs_assume_exact(lm)
+    print(lm_pairs)
+    print()
+
+    print(cm)
+
+    return
 
     fendley_weight = 1.0
     y = []
@@ -144,6 +157,7 @@ def currents_phase():
     ax.plot(x, y)
     ax.set_xlabel("Currents weight")
     ax.set_ylabel("Gap")
+    ax.set_xscale("log")
     plt.tight_layout()
     plt.savefig(f"output/currents_phase_{num_triangles}.pdf")
 
