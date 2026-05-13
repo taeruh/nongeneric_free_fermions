@@ -1,48 +1,35 @@
-import os
 import json
 import numpy as np
 from sage.all import graphs  # pyright: ignore  (this is sage.graphs ...)
 import matplotlib.pyplot as plt
 
 from models.fendley import Fendley
-from models.weights import ConstantWeight, RandomWeight
+from models.weights import ConstantWeight
 from krylov import Generators
+from . import utils
 
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 4
+    up_num_triangles = 6
 
-    # weight = 1
-    # seed = 3
-    # seed = None
-    # alpha = ConstantWeight(np.float64(1))
-    # beta = ConstantWeight(np.float64(1))
-    # gamma = ConstantWeight(np.float64(1))
-    # currents_alpha = ConstantWeight(np.float64(1))
-    alpha = RandomWeight()
-    beta = RandomWeight()
-    gamma = RandomWeight()
-    currents_alpha = RandomWeight()
-    # simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
-    simplicial_mode_choices = ["IIIIX", "IIIYZ", "IIYII"]
+    alpha = ConstantWeight(np.float64(1))
+    beta = ConstantWeight(np.float64(1))
+    gamma = ConstantWeight(np.float64(1))
+    currents_alpha = ConstantWeight(np.float64(1))
+    simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
 
-    load_data = False
-    # load_data = True
+    # do_calculation = True
+    do_calculation = False
+    do_plot = True
+    # do_plot = False
 
-    os.makedirs("output/currents", exist_ok=True)
-    file_identifier = (
-        f"num_claws_{alpha}_{beta}_{gamma}_{currents_alpha}"
-        + "-".join(simplicial_mode_choices)
+    file_identifier = f"num_claws_{alpha}_{beta}_{gamma}_{currents_alpha}" + "-".join(
+        simplicial_mode_choices
     )
-    data_file = f"output/currents/data_{file_identifier}.json"
-    plot_file = f"output/currents/plot_{file_identifier}.pdf"
+    data_file = f"output/final/data/{file_identifier}.json"
 
-    if load_data:
-        with open(data_file, "rb") as f:
-            data = json.load(f)
-            all_num_claws = data["all_num_claws"]
-    else:
+    if do_calculation:
         all_num_claws = []
         for simplicial_mode_choice in simplicial_mode_choices:
             get_generators = lambda tolerance: Generators(
@@ -55,10 +42,10 @@ def run():
                 ),
                 renormalise=True,
                 orthogonal_tolerance=tolerance,
-                max_search_eta_index=expected_rank-1,
+                max_search_eta_index=expected_rank - 1,
             )
 
-            num_claws = []  # up to permutation
+            num_claws = []
             for num_triangles in range(low_num_triangles, up_num_triangles + 1):
                 expected_rank = 2 * num_triangles + 1
                 print(f"Processing num_triangles={num_triangles}...")
@@ -68,46 +55,17 @@ def run():
                 ]
                 simplicial_mode = (1.0, simplicial_mode)
                 if mode_neighbours == 3:
-                    # in this case it is one generator less, probably, since the graph,
-                    # without the simplicial clique
-                    # TODO: proof that? or is it wrong and I have a bug?
                     expected_rank = expected_rank - 1
                 generators = get_generators(
                     1e-12,
                 )
-                if not generators.gram_schmidt_terminated:
-                    norms = generators.gram_schmidt_process.norms
-                    average_norm = np.mean(norms)
-                    assert norms[-1] < norms[-2] * 1e-3
-                    assert norms[-1] < average_norm * 1e-3
-                if generators.num_generators != expected_rank:
-                    generators = get_generators(
-                        1e-24,
-                    )
-                    if generators.num_generators != expected_rank:
-                        with open(
-                            f"output/currents/intermediate_{simplicial_mode_choice}"
-                            + f"_{num_triangles}_{file_identifier}.json"
-                            "w"
-                        ) as f:
-                            json.dump(
-                                {
-                                    "num_claws": num_claws,
-                                    "all_num_claws": all_num_claws,
-                                },
-                                f,
-                            )
-                        raise ValueError(
-                            f"Unexpected number of generators: ",
-                            f"{generators.num_generators} (expected {expected_rank})",
-                        )
+                assert generators.num_generators == expected_rank
                 generators.init_eta_currents()
                 fendley.extend_with_currents(
                     generators.eta_currents,
                     [currents_alpha() for _ in generators.eta_currents],
                 )
                 graph = fendley.hamiltonian.get_frustration_graph()
-                print(f"Number of vertices: {graph.num_verts()}, number of edges: {graph.num_edges()}")
                 # sagemaths SubgraphSearch does go over all subgraphs in the graph
                 # isomorphism class of that subgraph (sadly there is no option to return
                 # the single unique up to graph isomorphism subgraph), importantly the
@@ -140,23 +98,31 @@ def run():
                 },
                 f,
             )
+    else:
+        with open(data_file, "rb") as f:
+            data = json.load(f)
+            all_num_claws = data["all_num_claws"]
 
-    num_axes = len(simplicial_mode_choices)
-    fig = plt.figure(figsize=(10, 5 * num_axes))
-    gs = fig.add_gridspec(num_axes, 1)
-    axes = []
-    x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
-    for i, (y, label) in enumerate(zip(all_num_claws, simplicial_mode_choices)):
-        ax = fig.add_subplot(gs[i, 0])
-        axes.append(ax)
-        ax.plot(x, y)
-        ax.set_ylabel(f"Number of claws with {label} simplicial mode")
+    if do_plot:
+        utils.paper_setup()
+        fig = plt.figure(figsize=utils.set_size(height_in_width=0.5))
+        gs = fig.add_gridspec(1, 1)
+        ax = fig.add_subplot(gs[0, 0])
+        x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
+        for y, label in zip(
+            all_num_claws,
+            [
+                r"\sigma^z_1 \sigma^z_2 \sigma^z_3",
+                r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4",
+                r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4 \sigma^z_5",
+            ],
+        ):
+            ax.plot(x, y, label=rf"$\chi = {label}$")
+        ax.set_ylabel(rf"$\#$ claws")
         ax.set_xticks(x)
         ax.set_yscale("log")
-    ax = axes[0]
-    ax.set_title(file_identifier)
-    ax = axes[num_axes - 1]
-    ax.set_xlabel("Number of triangles")
-    # plt.tight_layout()
-    plt.subplots_adjust(top=0.95, bottom=0.06, left=0.08, right=0.95)
-    plt.savefig(plot_file)
+        ax.set_xlabel("Number of triangles")
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles, labels, loc="upper left")
+        plt.subplots_adjust(top=0.97, bottom=0.06, left=0.08, right=0.95)
+        plt.savefig("output/final/number_of_claws.pdf")

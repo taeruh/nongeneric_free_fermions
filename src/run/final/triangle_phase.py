@@ -16,10 +16,10 @@ def run():
     num_samples = abc_upper - abc_lower
     cw_low = 1.4
     cw_high = 2.6
-    num_points = 41
+    num_points = 3
 
-    num_rows = 6
-    num_cols = 7
+    num_rows = 2
+    num_cols = 2
     diff = num_rows * num_cols - num_points
     assert (
         diff == 1
@@ -94,10 +94,6 @@ def run():
         if islog:
             values = np.log(values)
         tpc = ax.tripcolor(triang, values, shading="gouraud")
-        # "flat" shading effectively takes the mean value of each triangle corner points
-        # and assigns that value to the triangle; that's only sensible if the values at
-        # the corners are not too different
-        # tpc = ax.tripcolor( triang, values, shading="flat", vmin=np.min(values), vmax=np.max(values))
         vertices_bary = np.array(
             [
                 [1, 0, 0],
@@ -117,7 +113,7 @@ def run():
         ax.set_aspect("equal")
         ax.axis("off")
         ax.set_title(
-            f"cw={cw:.3f}",
+            rf"$a = {cw:.3f}$",
             pad=9,
         )
         return cbar
@@ -128,7 +124,7 @@ def run():
         _ = plot_it(ax, values, currents_weight_factor)
 
     ax = fig.add_subplot(gs[-1, -1])
-    values = all_values[-1]  # the last one corresponds to currents_weight_factor=0.0
+    values = all_values[-1]
     cbar = plot_it(ax, values, 0.0)
     if islog:
         cbar.set_label("Log of gap")

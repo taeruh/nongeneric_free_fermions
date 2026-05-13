@@ -202,11 +202,62 @@ def get_phase_diagram():
 
 
 def test_t():
-    fendley = Fendley(3, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
-
+    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    graph = fendley.hamiltonian.get_frustration_graph()
     simplicial_mode = fendley.example_simplicial_modes["IIYII"][0]
     generators = Generators((1.0, simplicial_mode), fendley.hamiltonian)
     generators.init_eta_currents()
+
+    # graph.plot().save_image("output/fendley_graph.png")  # pyright: ignore
+
+    path_ops = []
+    for path in graph.all_paths_iterator(simple=True):
+        is_induced = True
+        for i in range(len(path)):
+            for j in range(i + 2, len(path)):
+                if graph.has_edge(path[i], path[j]):
+                    is_induced = False
+                    break
+            if not is_induced:
+                break
+        if not is_induced:
+            continue
+        op = Pauli.identity(fendley.hamiltonian.n)
+        for vertex in path:
+            op = op.multiply_as_paulis(fendley.hamiltonian.operators[vertex])
+        already_in = False
+        for path_op in path_ops:
+            if op.is_proportional_to(path_op):
+                already_in = True
+                break
+        if not already_in:
+            path_ops.append(op)
+
+    print("Path ops:")
+    print([f"{op.to_string()}" for op in path_ops])
+
+    for i in range(len(generators.eta_currents)):
+        if i % 2 == 0:
+            continue
+        for j in range(i + 1, len(generators.eta_currents)):
+            if j % 2 == 0:
+                continue
+            commutator = (
+                generators.eta_currents[i].multiply(generators.eta_currents[j])
+            ).subtract(generators.eta_currents[j].multiply(generators.eta_currents[i]))
+            print(f"Commutator of currents {i} and {j}:")
+            print([f"{w:.2f}, {op.to_string()}" for w, op in commutator.to_py_list()])
+            for _, op in commutator.to_py_list():
+                in_path_ops = False
+                for path_op in path_ops:
+                    if op.is_proportional_to(path_op):
+                        in_path_ops = True
+                        break
+                if not in_path_ops:
+                    print(f"Not in path ops: {op.to_string()}")
+
+    return
+
     fendley.extend_with_currents(
         generators.eta_currents,
         [np.float64(1.0) for _ in generators.eta_currents],

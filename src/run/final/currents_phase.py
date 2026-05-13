@@ -88,7 +88,7 @@ def run():
         ax.plot(currents_weight, gap, label=f"{num_triangles} triangles")
         max_gap = max(max_gap, max(gap))
 
-    ax.set_xlabel(r"Currents weight $\alpha$")
+    ax.set_xlabel(r"Currents weight $a$")
     ax.set_ylabel(r"Gap $\varepsilon_{\text{min}}$")
     ax.set_xscale("log")
     ax.set_xlim(currents_weight[0], currents_weight[-1])
