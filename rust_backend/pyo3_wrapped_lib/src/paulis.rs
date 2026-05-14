@@ -80,6 +80,10 @@ impl Pauli {
     fn __repr__(&self) -> String {
         self.0.representation()
     }
+
+    fn copy(&self) -> Self {
+        self.clone()
+    }
 }
 
 #[pyo3::pyclass(subclass, from_py_object)]
@@ -91,10 +95,6 @@ impl PauliSum {
     #[new]
     fn __new__(ops: Vec<(f64, Pauli)>) -> Self {
         Self(LibPauliSum::new(ops.into_iter().map(|(c, p)| (c, p.0)).collect()))
-    }
-
-    fn deep_copy(&self) -> Self {
-        self.clone()
     }
 
     fn multiply(&self, other: &Self) -> Self {
@@ -135,6 +135,10 @@ impl PauliSum {
 
     fn to_py_list(&self) -> Vec<(f64, Pauli)> {
         self.0.0.iter().map(|(c, p)| (*c, Pauli(p.clone()))).collect()
+    }
+
+    fn copy(&self) -> Self {
+        self.clone()
     }
 }
 

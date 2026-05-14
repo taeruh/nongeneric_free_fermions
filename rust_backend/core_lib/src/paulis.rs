@@ -238,7 +238,7 @@ impl PauliSum {
                 match phase {
                     0 => total += weight,
                     2 => total -= weight,
-                    _ => unreachable!(),
+                    _ => panic!("unexpected phase difference"),
                 }
             }
         }

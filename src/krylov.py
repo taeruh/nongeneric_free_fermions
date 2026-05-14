@@ -195,10 +195,10 @@ class Generators:
         anti_comm_mat_etas /= 2  # per definition
 
         scale = linalg.norm(anti_comm_mat_etas)
-        print(scale, "scale")
-        print(linalg.cond(anti_comm_mat_etas))
+        # print(scale, "scale")
+        # print(linalg.cond(anti_comm_mat_etas))
         anti_comm_mat_etas = anti_comm_mat_etas / scale
-        print(linalg.cond(anti_comm_mat_etas))
+        # print(linalg.cond(anti_comm_mat_etas))
 
         # print(anti_comm_mat_etas.shape)
         # eigvals, eigvecs = linalg.eigh(anti_comm_mat_etas)
@@ -217,7 +217,7 @@ class Generators:
         # print(anti_comm_mat_etas)
         # print()
 
-        print(eigvals)
+        # print(eigvals)
         # for val in eigvals_mp:
         for val in eigvals:
             if do_eigval_zero_check:
@@ -270,8 +270,8 @@ class Generators:
                                     * weight_j
                                     * (-1) ** (prod.phase() // 2)
                                 )
-                    if i == j:
-                        print(total_trace, "should be 2")
+                    # if i == j:
+                    #     print(total_trace, "should be 2")
                     anti_comm_mat_gammas[i, j] = total_trace
 
             # print()
@@ -279,15 +279,15 @@ class Generators:
             # print(anti_comm_mat_gammas[0, 0], "should be 2")
             # print(anti_comm_mat_gammas[1, 1], "should be 2")
 
-            diff = anti_comm_mat_gammas - 2 * np.identity(self.num_generators)
-            norm = 0
-            print()
-            # print(anti_comm_mat_gammas)
-            for i in range(self.num_generators):
-                for j in range(self.num_generators):
-                    # print(abs(diff[i, j]))
-                    norm += abs(diff[i, j])
-            print(norm, "total")
+            # diff = anti_comm_mat_gammas - 2 * np.identity(self.num_generators)
+            # norm = 0
+            # print()
+            # # print(anti_comm_mat_gammas)
+            # for i in range(self.num_generators):
+            #     for j in range(self.num_generators):
+            #         # print(abs(diff[i, j]))
+            #         norm += abs(diff[i, j])
+            # print(norm, "total")
             assert np.allclose(
                 anti_comm_mat_gammas, 2 * np.identity(self.num_generators)
             )
@@ -334,7 +334,6 @@ class Generators:
         """given a pauli, return the coefficients of its projection onto the gammas"""
         coeffs = []
         for (i, j), ops in self.gamma_bilinears.items():
-            # coeff = paulis.list_and_single_hilbert_schmidt_inner_product(ops, pauli)
             coeff = ops.single_hilbert_schmidt_inner_product(pauli)
             if coeff != 0.0:
                 coeffs.append((i, j, coeff))

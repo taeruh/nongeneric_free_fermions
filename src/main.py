@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-from run import run, num_claws, num_vertices, phase_diagram
+from run import run, num_claws, num_vertices, phase_diagram, path_decompositions
 from run import final
 
 
@@ -12,8 +12,9 @@ def main():
     # final.currents_phase.run()
     # final.triangle_phase.run()
     # final.number_of_claws.run()
-    final.number_of_vertices.run()
+    # final.number_of_vertices.run()
 
+    path_decompositions.run()
     # test()
     # phase_diagram.fendley_phase()
     # phase_diagram.add_currents_phase()
