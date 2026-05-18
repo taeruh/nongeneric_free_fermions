@@ -25,7 +25,6 @@ impl Fendley {
         current_alpha: Vec<f64>,
     ) {
         let currents = &generator.0.eta_currents;
-        println!("extending with {} currents", currents.len());
         self.0.extend_with_currents(currents, &current_alpha);
     }
 

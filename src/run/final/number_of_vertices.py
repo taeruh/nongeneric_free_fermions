@@ -14,19 +14,19 @@ from rust_backend.fendley import Fendley as RustFendley
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 8
-    # up_num_triangles = 15
+    up_num_triangles = 14
 
     alpha = ConstantWeight(np.float64(1))
     beta = ConstantWeight(np.float64(1))
     gamma = ConstantWeight(np.float64(1))
     currents_alpha = ConstantWeight(np.float64(1))
     simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
+    # simplicial_mode_choices = ["IIZZZ"]
 
-    # do_calculation = True
-    do_calculation = False
-    do_plot = True
-    # do_plot = False
+    do_calculation = True
+    # do_calculation = False
+    # do_plot = True
+    do_plot = False
 
     file_identifier = (
         f"num_vertices_{alpha}_{beta}_{gamma}_{currents_alpha}"

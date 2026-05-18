@@ -142,7 +142,7 @@ impl GeneratorsWithoutGramSchmidt {
             for (_, op) in current.0.iter() {
                 assert!(op.get_hermitian_phase() == 0 || op.get_hermitian_phase() == 2);
             }
-            println!("calculated current for eta {l}");
+            println!("calculated current {l}");
             currents.lock().unwrap().insert(l, current);
         });
         let mut currents = currents.into_inner().unwrap();
