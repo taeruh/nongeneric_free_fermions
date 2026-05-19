@@ -8,24 +8,25 @@ from hamiltonian import Hamiltonian
 from models.fendley import Fendley
 from models.weights import ConstantWeight
 from krylov import Generators
+import graph_helper
 
 
 def run():
-    fendley = Fendley(3, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
     graph = fendley.hamiltonian.get_frustration_graph()
-    # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"][0]
-    # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"][0]
-    simplicial_mode = fendley.example_simplicial_modes["IIZZZ"][0]
+    # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
+    # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"]
+    simplicial_mode = fendley.example_simplicial_modes["IIZZZ"]
     generators = Generators(
-        (1.0, simplicial_mode),
+        (1.0, simplicial_mode[0]),
         fendley.hamiltonian,
-        test_path_decompositions_reconstruction=True,
     )
-    generators.test_path_decompositions_induced(graph)
+    generators.test_path_decompositions(graph)
 
     generators.init_gammas(do_eigval_zero_check=False)
     generators.init_gamma_bilinears()
     generators.init_eta_bilinears()
+
     # generators.init_eta_currents()
 
     for vec in generators.eta_vectors:
@@ -35,6 +36,20 @@ def run():
                 path = generators.eta_vector_to_path_map[i]
                 print(f"{w:5.1f} {op.to_string()} {path}")
         print()
+
+    generators.init_eta_path_bilinears([i for i in range(simplicial_mode[1])], graph)
+    # graph.plot().save_image("output/fendley_graph.pdf")  # pyright: ignore
+
+    for i in range(generators.num_generators):
+        for j in range(i + 1, generators.num_generators):
+            print(i, j)
+            print(
+                [
+                    (f"{w}", path, graph_helper.is_induced_path(graph, path[0]))
+                    for (w, path) in generators.eta_path_bilinears[(i, j)]
+                ]
+            )
+            print()
 
     return
 
@@ -57,7 +72,6 @@ def run():
     #     print([(w, p.to_string()) for (w, p) in current.to_py_list()])
     #     print()
 
-    # graph.plot().save_image("output/fendley_graph.png")  # pyright: ignore
 
     path_ops = []
     paths = []

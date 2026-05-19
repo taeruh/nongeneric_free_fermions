@@ -5,6 +5,7 @@ import scipy
 
 from hamiltonian import Hamiltonian
 from rust_backend.paulis import Pauli, PauliSum
+import graph_helper
 
 
 class Generators:
@@ -16,7 +17,6 @@ class Generators:
         eta_normalisation_factor: np.float64 = np.float64(1.0),
         orthogonal_tolerance: float = 1e-10,
         max_search_eta_index: int | None = None,
-        test_path_decompositions_reconstruction: bool = False,
     ):
         # TODO: check that we undo the renormalisation when required (cf. below in
         # """...""" (e.g., when caculating the currents); in general it probably has to be
@@ -52,7 +52,7 @@ class Generators:
         self.hamiltonian = hamiltonian
         self.eta_vector_to_pauli_map = [simplicial_mode[1]]
         self.pauli_to_eta_vector_map = {simplicial_mode[1].to_string(): 0}
-        self.eta_vector_to_path_map = [[0]]
+        self.eta_vector_to_path_map = [([-1], 0)]
         if renormalise:
             self.etas: list[PauliSum] = [
                 PauliSum([(np.float64(1.0), simplicial_mode[1])])
@@ -90,7 +90,6 @@ class Generators:
                 for ham_label, (ham_weight, ham_op) in enumerate(
                     zip(hamiltonian.weights, hamiltonian.operators)
                 ):
-                    ham_label += 1  # because 0 is the simplicial mode
                     if ham_op.symplectic_inner_product(op):
                         # cf. paper definition (the 1/2 cancels since we get the product
                         # twice from the commutator)
@@ -113,7 +112,9 @@ class Generators:
                                 len(self.eta_vector_to_pauli_map) - 1
                             )
                             op_index = self.pauli_to_eta_vector_map[op.to_string()]
-                            comm_op_path = self.eta_vector_to_path_map[op_index].copy()
+                            comm_op_path = self.eta_vector_to_path_map[op_index][
+                                0
+                            ].copy()
                             # NOTE: The fact that the following line makes sense is not
                             # trivial and one of the results in the paper; it actually
                             # also produce "incorrect paths", however, they allways have
@@ -127,34 +128,25 @@ class Generators:
                             # such an induced path. But we also know that comm_op=ham_op *
                             # op (up to a scalar), which implies that comm_op_path =
                             # [ham_label] + op_path (up to a scalar...; in the code we
-                            # actually append, ignore that here!) and theoretically
-                            # one would have to potentially commute ham_label through the
-                            # other labels in op_path into the correct position and
-                            # potentially cancel it there, however, we do not have to do
-                            # that here, because those cases never appear: If op_path[0] =
-                            # ham_label, then the cancellation would result in
-                            # comm_op_path = op_path[1:], however, this path must already
-                            # be in eta_vector_to_path_map, because we constructed op_path
-                            # from op_path[1:], but then comm_op was already_in_vectors
-                            # and we never get into this "if case" here; if ham_label is
-                            # equal to some other element in op_path that is not the first
-                            # element, then the cancellation would result in an "incorrect
-                            # path", but then we know that the final weight of this
-                            # "incorrect path" must be zero in all eta_vectors, so we just
-                            # don't care about it.
-                            #
-                            # To make things look nicer, I append ham_label to op_path
-                            # here (instead of prepending), and then we just need to
-                            # correct for that (and some "i" factors) when we reconstruct
-                            # comm_op from comm_op_path (in def eta_path_to_operator).
-                            comm_op_path.append(ham_label)
-                            self.eta_vector_to_path_map.append(comm_op_path)
-                            if test_path_decompositions_reconstruction:
-                                assert comm_op.is_equal_to(
-                                    self.eta_path_to_operator(
-                                        len(self.eta_vector_to_pauli_map) - 1
-                                    )
-                                )
+                            # actually append here for now, ignore that here!) and
+                            # theoretically one would have to potentially commute
+                            # ham_label through the other labels in op_path into the
+                            # correct position and potentially cancel it there, however,
+                            # we do not have to do that here, because those cases never
+                            # appear: If op_path[0] = ham_label, then the cancellation
+                            # would result in comm_op_path = op_path[1:], however, this
+                            # path must already be in eta_vector_to_path_map, because we
+                            # constructed op_path from op_path[1:], but then comm_op was
+                            # already_in_vectors and we never get into this "if case"
+                            # here; if ham_label is equal to some other element in op_path
+                            # that is not the first element, then the cancellation would
+                            # result in an "incorrect path", but then we know that the
+                            # final weight of this "incorrect path" must be zero in all
+                            # eta_vectors, so we just don't care about it.
+                            comm_op_path.append(ham_label)  # reverse later
+                            self.eta_vector_to_path_map.append(
+                                (comm_op_path, (len(comm_op_path) - 1) % 4)
+                            )
 
                             vector = np.append(vector, comm_weight)
                             self.gram_schmidt_process.append_zeros()
@@ -210,52 +202,41 @@ class Generators:
         #     "zero-weight operators in the (probobly last) etas, which can be removed",
         # )
 
+        for path, _ in self.eta_vector_to_path_map:
+            path.reverse()
+
         self.num_generators = len(self.etas)
 
-    def eta_path_to_operator(self, path_index: int) -> Pauli:
+    def path_to_operator(self, path: tuple[list[int], int]) -> Pauli:
         """
-        helper to reconstruct the according pauli from paths in
-        self.eta_vector_to_path_map
+        helper to reconstruct the according pauli from sorted paths in
+        self.eta_vector_to_path_map and self.eta_path_bilinears
         """
-        path = self.eta_vector_to_path_map[path_index]
         path_op = Pauli.identity(self.n)
-        for vertex in path:
-            if vertex == 0:
+        for vertex in path[0]:
+            if vertex == -1:
                 next_op = self.simplicial_mode[1]
             else:
-                next_op = self.hamiltonian.operators[vertex - 1]
+                next_op = self.hamiltonian.operators[vertex]
             path_op = path_op.multiply_as_paulis(next_op)
-        # the 2 here because the path is actually in the wrong order, and the 1 here is
-        # the additional i to make things hermitian
-        path_op.add_to_phase(((2 + 1) * (len(path) - 1)) % 4)
+        path_op.add_to_phase(path[1])
         return path_op
 
-    def test_path_decompositions_induced(self, graph: Graph | None = None):
+    def test_path_decompositions(self, graph: Graph | None = None):
         if graph is None:
             graph = self.hamiltonian.get_frustration_graph()
         for vec in self.eta_vectors:
             for i, w in enumerate(vec):
                 if w != 0:
-                    path_without_mode_and_shifted = self.eta_vector_to_path_map[
-                        i
-                    ].copy()
-                    path_without_mode_and_shifted.remove(0)
-                    for i, e in enumerate(path_without_mode_and_shifted):
-                        path_without_mode_and_shifted[i] = e - 1
-                    is_induced = True
-                    for i in range(len(path_without_mode_and_shifted)):
-                        for j in range(i + 2, len(path_without_mode_and_shifted)):
-                            if graph.has_edge(
-                                path_without_mode_and_shifted[i],
-                                path_without_mode_and_shifted[j],
-                            ):
-                                is_induced = False
-                                break
-                        if not is_induced:
-                            break
-                    assert (
-                        is_induced
-                    ), f"path {path_without_mode_and_shifted} is not induced"
+                    op = self.eta_vector_to_pauli_map[i]
+                    path = self.eta_vector_to_path_map[i]
+                    print(path)
+                    assert op.is_equal_to(self.path_to_operator(path))
+                    path_without_mode = path[0].copy()
+                    path_without_mode.remove(-1)
+                    assert graph_helper.is_induced_path(
+                        graph, path_without_mode
+                    )
 
     def init_gammas(self, do_checks: bool = True, do_eigval_zero_check: bool = True):
         """
@@ -433,6 +414,98 @@ class Generators:
         self.eta_bilinears[(0, 0)] = PauliSum(
             [(np.float64(1.0), Pauli.identity(self.n))]
         )
+
+    def init_eta_path_bilinears(
+        self, connections: list[int], graph: Graph | None = None, test_them: bool = True
+    ):
+        """these are not necessarily induced paths"""
+        if graph is None:
+            graph = self.hamiltonian.get_frustration_graph()
+        else:
+            graph = graph.copy()
+        graph.add_vertex(-1)
+        for vertex in connections:
+            graph.add_edge(-1, vertex)
+        self.eta_path_bilinears: dict[
+            tuple[int, int], list[tuple[float, list[int]]]
+        ] = dict()
+        for i in range(self.num_generators):
+            for j in range(i + 1, self.num_generators):
+                path_bilinear = []
+                vector_i = self.eta_vectors[i]
+                vector_j = self.eta_vectors[j]
+                for iidx, iw in enumerate(vector_i):
+                    if iw != 0:
+                        path_i = self.eta_vector_to_path_map[iidx][0].copy()
+                        phase_i = self.eta_vector_to_path_map[iidx][1]
+                        for jidx, jw in enumerate(vector_j):
+                            if jw != 0:
+                                path_j = self.eta_vector_to_path_map[jidx][0].copy()
+                                phase_j = self.eta_vector_to_path_map[jidx][1]
+                                weight = iw * jw
+                                phase = (phase_i + phase_j) % 4
+                                path = path_i.copy()
+                                for jvertex in path_j:
+                                    position = len(path)
+                                    cancel = False
+                                    for ivertex in reversed(path):
+                                        if ivertex == jvertex:
+                                            position -= 1
+                                            cancel = True
+                                            break
+                                        elif ivertex > jvertex:
+                                            break
+                                        else:
+                                            position -= 1
+                                            if graph.has_edge(ivertex, jvertex):
+                                                phase = (phase + 2) % 4
+                                    if not cancel:
+                                        path.insert(position, jvertex)
+                                    else:
+                                        del path[position]
+                                already_in = False
+                                for pbi, (oweight, (opath, ophase)) in enumerate(
+                                    path_bilinear
+                                ):
+                                    if opath == path:
+                                        phase_diff = (phase - ophase) % 4
+                                        assert phase_diff in [0, 2]
+                                        path_bilinear[pbi] = (
+                                            oweight
+                                            + (-1) ** (phase_diff // 2) * weight,
+                                            (opath, ophase),
+                                        )
+                                        already_in = True
+                                        break
+                                if not already_in:
+                                    path_bilinear.append((weight, (path, phase)))
+                to_remove = []
+                for pbi, (weight, _) in enumerate(path_bilinear):
+                    if np.isclose(weight, 0.0):
+                        to_remove.append(pbi)
+                for pbi in reversed(to_remove):
+                    del path_bilinear[pbi]
+                if test_them:
+                    eta_bilinear = self.eta_bilinears[(i, j)].to_py_list()
+                    assert len(path_bilinear) == len(eta_bilinear)
+                    hit_indices = set()
+                    for weight, (path, phase) in path_bilinear:
+                        path_op = self.path_to_operator((path, phase))
+                        found = False
+                        for index, (eweight, eop) in enumerate(eta_bilinear):
+                            if path_op.is_proportional_to(eop):
+                                sign_phase = path_op.phase_difference(eop)
+                                assert sign_phase in [0, 2]
+                                assert np.isclose(
+                                    weight, eweight * (-1) ** (sign_phase // 2)
+                                )
+                                hit_indices.add(index)
+                                found = True
+                                break
+                        assert found
+                    assert len(hit_indices) == len(eta_bilinear)
+
+                self.eta_path_bilinears[(i, j)] = path_bilinear
 
     def bilinear_gamma_projection(
         self, pauli: Pauli
