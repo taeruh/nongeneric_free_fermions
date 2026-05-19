@@ -1,10 +1,10 @@
 import numpy as np
+from sage.all import Graph
 from numpy import linalg
 import scipy
 
 from hamiltonian import Hamiltonian
 from rust_backend.paulis import Pauli, PauliSum
-import paulis
 
 
 class Generators:
@@ -16,6 +16,7 @@ class Generators:
         eta_normalisation_factor: np.float64 = np.float64(1.0),
         orthogonal_tolerance: float = 1e-10,
         max_search_eta_index: int | None = None,
+        test_path_decompositions_reconstruction: bool = False,
     ):
         # TODO: check that we undo the renormalisation when required (cf. below in
         # """...""" (e.g., when caculating the currents); in general it probably has to be
@@ -47,7 +48,11 @@ class Generators:
         print the norms in the Gram-Schmidt process and check that it looks sensible
         """
         self.n = simplicial_mode[1].n()
+        self.simplicial_mode = simplicial_mode
+        self.hamiltonian = hamiltonian
         self.eta_vector_to_pauli_map = [simplicial_mode[1]]
+        self.pauli_to_eta_vector_map = {simplicial_mode[1].to_string(): 0}
+        self.eta_vector_to_path_map = [[0]]
         if renormalise:
             self.etas: list[PauliSum] = [
                 PauliSum([(np.float64(1.0), simplicial_mode[1])])
@@ -82,9 +87,10 @@ class Generators:
             eta = PauliSum([])
             vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=np.float64)
             for weight, op in last_eta.to_py_list():
-                for ham_weight, ham_op in zip(
-                    hamiltonian.weights, hamiltonian.operators
+                for ham_label, (ham_weight, ham_op) in enumerate(
+                    zip(hamiltonian.weights, hamiltonian.operators)
                 ):
+                    ham_label += 1  # because 0 is the simplicial mode
                     if ham_op.symplectic_inner_product(op):
                         # cf. paper definition (the 1/2 cancels since we get the product
                         # twice from the commutator)
@@ -103,6 +109,53 @@ class Generators:
                                 break
                         if not already_in_vectors:
                             self.eta_vector_to_pauli_map.append(comm_op)
+                            self.pauli_to_eta_vector_map[comm_op.to_string()] = (
+                                len(self.eta_vector_to_pauli_map) - 1
+                            )
+                            op_index = self.pauli_to_eta_vector_map[op.to_string()]
+                            comm_op_path = self.eta_vector_to_path_map[op_index].copy()
+                            # NOTE: The fact that the following line makes sense is not
+                            # trivial and one of the results in the paper; it actually
+                            # also produce "incorrect paths", however, they allways have
+                            # zero weight in the eta_vectors, so I don't care about
+                            # filtering them out. In more detail: We know that the etas
+                            # can be decomposed into induced paths starting from the
+                            # simplicial mode. Therefore we know, inductively, that
+                            # op_path=eta_vector_to_path_map[op_index] is such an induced
+                            # path. Now assume that comm_weight wont be zero in the end,
+                            # i.e., we know that the path we want to construct is also
+                            # such an induced path. But we also know that comm_op=ham_op *
+                            # op (up to a scalar), which implies that comm_op_path =
+                            # [ham_label] + op_path (up to a scalar...; in the code we
+                            # actually append, ignore that here!) and theoretically
+                            # one would have to potentially commute ham_label through the
+                            # other labels in op_path into the correct position and
+                            # potentially cancel it there, however, we do not have to do
+                            # that here, because those cases never appear: If op_path[0] =
+                            # ham_label, then the cancellation would result in
+                            # comm_op_path = op_path[1:], however, this path must already
+                            # be in eta_vector_to_path_map, because we constructed op_path
+                            # from op_path[1:], but then comm_op was already_in_vectors
+                            # and we never get into this "if case" here; if ham_label is
+                            # equal to some other element in op_path that is not the first
+                            # element, then the cancellation would result in an "incorrect
+                            # path", but then we know that the final weight of this
+                            # "incorrect path" must be zero in all eta_vectors, so we just
+                            # don't care about it.
+                            #
+                            # To make things look nicer, I append ham_label to op_path
+                            # here (instead of prepending), and then we just need to
+                            # correct for that (and some "i" factors) when we reconstruct
+                            # comm_op from comm_op_path (in def eta_path_to_operator).
+                            comm_op_path.append(ham_label)
+                            self.eta_vector_to_path_map.append(comm_op_path)
+                            if test_path_decompositions_reconstruction:
+                                assert comm_op.is_equal_to(
+                                    self.eta_path_to_operator(
+                                        len(self.eta_vector_to_pauli_map) - 1
+                                    )
+                                )
+
                             vector = np.append(vector, comm_weight)
                             self.gram_schmidt_process.append_zeros()
                             # while we don't need to append zeros for what we do in this
@@ -157,8 +210,52 @@ class Generators:
         #     "zero-weight operators in the (probobly last) etas, which can be removed",
         # )
 
-
         self.num_generators = len(self.etas)
+
+    def eta_path_to_operator(self, path_index: int) -> Pauli:
+        """
+        helper to reconstruct the according pauli from paths in
+        self.eta_vector_to_path_map
+        """
+        path = self.eta_vector_to_path_map[path_index]
+        path_op = Pauli.identity(self.n)
+        for vertex in path:
+            if vertex == 0:
+                next_op = self.simplicial_mode[1]
+            else:
+                next_op = self.hamiltonian.operators[vertex - 1]
+            path_op = path_op.multiply_as_paulis(next_op)
+        # the 2 here because the path is actually in the wrong order, and the 1 here is
+        # the additional i to make things hermitian
+        path_op.add_to_phase(((2 + 1) * (len(path) - 1)) % 4)
+        return path_op
+
+    def test_path_decompositions_induced(self, graph: Graph | None = None):
+        if graph is None:
+            graph = self.hamiltonian.get_frustration_graph()
+        for vec in self.eta_vectors:
+            for i, w in enumerate(vec):
+                if w != 0:
+                    path_without_mode_and_shifted = self.eta_vector_to_path_map[
+                        i
+                    ].copy()
+                    path_without_mode_and_shifted.remove(0)
+                    for i, e in enumerate(path_without_mode_and_shifted):
+                        path_without_mode_and_shifted[i] = e - 1
+                    is_induced = True
+                    for i in range(len(path_without_mode_and_shifted)):
+                        for j in range(i + 2, len(path_without_mode_and_shifted)):
+                            if graph.has_edge(
+                                path_without_mode_and_shifted[i],
+                                path_without_mode_and_shifted[j],
+                            ):
+                                is_induced = False
+                                break
+                        if not is_induced:
+                            break
+                    assert (
+                        is_induced
+                    ), f"path {path_without_mode_and_shifted} is not induced"
 
     def init_gammas(self, do_checks: bool = True, do_eigval_zero_check: bool = True):
         """
@@ -319,12 +416,21 @@ class Generators:
                 # need to make them hermitian
                 # print([(w, op.to_string()) for w, op in product.to_py_list()])
                 product.multiply_with_one_imag_unit()
-                for w, op in product.to_py_list():
-                    # print(w, op.to_string(), op.phase())
-                    # assert op.get_hermitian_phase() in [0, 2]
+                for _, op in product.to_py_list():
+                    assert op.get_hermitian_phase() in [0, 2]
                     pass
                 self.gamma_bilinears[(i, j)] = product
         self.gamma_bilinears[(0, 0)] = PauliSum(
+            [(np.float64(1.0), Pauli.identity(self.n))]
+        )
+
+    def init_eta_bilinears(self):
+        """these are not necessarily hermitian"""
+        self.eta_bilinears: dict[tuple[int, int], PauliSum] = dict()
+        for i in range(self.num_generators):
+            for j in range(i + 1, self.num_generators):
+                self.eta_bilinears[(i, j)] = self.etas[i].multiply(self.etas[j])
+        self.eta_bilinears[(0, 0)] = PauliSum(
             [(np.float64(1.0), Pauli.identity(self.n))]
         )
 

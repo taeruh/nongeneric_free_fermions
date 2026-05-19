@@ -63,6 +63,10 @@ impl Pauli {
         self.0.is_proportional_to(&other.0)
     }
 
+    fn is_equal_to(&self, other: &Self) -> bool {
+        self.0.is_equal_to(&other.0)
+    }
+
     /// assuming self and other are proportional, returns the phase difference between
     /// self and other, more precisely: self = (i^phase_difference) * other
     fn phase_difference(&self, other: &Self) -> u8 {

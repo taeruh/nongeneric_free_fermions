@@ -11,18 +11,51 @@ from krylov import Generators
 
 
 def run():
-    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    fendley = Fendley(3, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
     graph = fendley.hamiltonian.get_frustration_graph()
     # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"][0]
+    # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"][0]
     simplicial_mode = fendley.example_simplicial_modes["IIZZZ"][0]
-    generators = Generators((1.0, simplicial_mode), fendley.hamiltonian)
+    generators = Generators(
+        (1.0, simplicial_mode),
+        fendley.hamiltonian,
+        test_path_decompositions_reconstruction=True,
+    )
+    generators.test_path_decompositions_induced(graph)
+
     generators.init_gammas(do_eigval_zero_check=False)
     generators.init_gamma_bilinears()
-    generators.init_eta_currents()
+    generators.init_eta_bilinears()
+    # generators.init_eta_currents()
 
-    for current in generators.eta_currents:
-        print([(w, p.to_string()) for (w, p) in current.to_py_list()])
+    for vec in generators.eta_vectors:
+        for i, w in enumerate(vec):
+            if w != 0:
+                op = generators.eta_vector_to_pauli_map[i]
+                path = generators.eta_vector_to_path_map[i]
+                print(f"{w:5.1f} {op.to_string()} {path}")
         print()
+
+    return
+
+    # print(
+    #     [
+    #         (w, op.to_string())
+    #         for (w, op) in generators.gamma_bilinears[(0, 2)].to_py_list()
+    #     ]
+    # )
+    # print()
+    # print(
+    #     [
+    #         (w, op.to_string())
+    #         for (w, op) in generators.eta_bilinears[(0, 2)].to_py_list()
+    #     ]
+    # )
+    # print()
+
+    # for current in generators.eta_currents:
+    #     print([(w, p.to_string()) for (w, p) in current.to_py_list()])
+    #     print()
 
     # graph.plot().save_image("output/fendley_graph.png")  # pyright: ignore
 
@@ -62,11 +95,15 @@ def run():
     for path_op in path_ops:
         projections.append(generators.bilinear_gamma_projection(path_op))
 
-    allowed_lengths = set([2, 4])
+    # allowed_lengths = set([2, 4])
+    allowed_lengths = set([2, 2])
+    # allowed_lengths = set([2])
     restricted_path_indices = []
     for i, path in enumerate(paths):
         if len(path) in allowed_lengths:
             restricted_path_indices.append(i)
+
+    print(f"len(restricted_path_indices)={len(restricted_path_indices)}")
 
     weight = 1.0
     for choice in range(
@@ -92,6 +129,8 @@ def run():
         for w in path_projection.values():
             reconstructed_norm += w**2
         reconstructed_norm = np.sqrt(reconstructed_norm)
+        # if abs(norm-reconstructed_norm) < 0.2:
+        #     print(f"norms close...: {norm} vs {reconstructed_norm}")
         if np.isclose(norm, reconstructed_norm):
             path_projection = list(path_projection.items())
             print(f"choice: {bin(choice)}")
@@ -114,43 +153,3 @@ def run():
             #     f"reconstructed: {[(w, p.to_string()) for (w, p) in reconstructed.to_py_list()]}"
             # )
             print()
-
-    # count = 0
-    # for path in path_ops:
-    #     count += 1
-    #     # if not count == 6:
-    #     #     continue
-    #     projection = generators.bilinear_gamma_projection(path)
-    #     # print(projection)
-    #     if len(projection) == 0:
-    #         print("no overlap")
-    #         print()
-    #         continue
-    #     start = 0
-    #     overlap = 0
-    #     a, b, w = projection[start]
-    #     overlap += w**2
-    #     reconstructed = generators.gamma_bilinears[(a, b)].copy()
-    #     reconstructed.multiply_with_float(w)
-    #     for a, b, w in projection[start+1:]:
-    #         overlap += w**2
-    #         op = generators.gamma_bilinears[(a, b)].copy()
-    #         op.multiply_with_float(w)
-    #         reconstructed = reconstructed.add(op)
-    #     overlap = np.sqrt(overlap)
-    #     reconstructed.remove_zero_weights()
-    #     alt_overlap = 0
-    #     for w, _ in reconstructed.to_py_list():
-    #         alt_overlap += w**2
-    #     alt_overlap = np.sqrt(alt_overlap)
-    #     print(f"overlap: {overlap}, {alt_overlap}")
-    #     # print([(w, p.to_string()) for (w, p) in reconstructed.to_py_list()])
-    #     print()
-    #     # if count == 6:
-    #     #     break
-    #     if np.isclose(overlap, 1.0):
-    #         print("PERFECT OVERLAP")
-    #         print(path.to_string())
-    #         print(projection)
-    #         print([(w, p.to_string()) for (w, p) in reconstructed.to_py_list()])
-    #         # break
