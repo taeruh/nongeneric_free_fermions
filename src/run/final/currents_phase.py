@@ -85,11 +85,11 @@ def run():
 
     max_gap = 0
     for num_triangles, gap in zip(nums_triangles, gaps):
-        ax.plot(currents_weight, gap, label=f"{num_triangles} triangles")
+        ax.plot(currents_weight, gap, label=f"N = {num_triangles}")
         max_gap = max(max_gap, max(gap))
 
     ax.set_xlabel(r"Currents weight $a$")
-    ax.set_ylabel(r"Gap $\varepsilon_{\text{min}}$")
+    ax.set_ylabel(r"Gap $\abs{\lambda}_{\text{min}}$")
     ax.set_xscale("log")
     ax.set_xlim(currents_weight[0], currents_weight[-1])
     ax.set_ylim(0, max_gap * 1.03)

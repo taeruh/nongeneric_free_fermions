@@ -10,11 +10,11 @@ def main():
     os.makedirs("output", exist_ok=True)
 
     # final.currents_phase.run()
-    # final.triangle_phase.run()
+    final.triangle_phase.run()
     # final.number_of_claws.run()
     # final.number_of_vertices.run()
 
-    path_decompositions.run()
+    # path_decompositions.run()
     # test()
     # phase_diagram.fendley_phase()
     # phase_diagram.add_currents_phase()

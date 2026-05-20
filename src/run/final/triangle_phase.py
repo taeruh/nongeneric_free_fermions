@@ -16,10 +16,10 @@ def run():
     num_samples = abc_upper - abc_lower
     cw_low = 1.4
     cw_high = 2.6
-    num_points = 3
+    num_points = 41
 
-    num_rows = 2
-    num_cols = 2
+    num_rows = 6
+    num_cols = 7
     diff = num_rows * num_cols - num_points
     assert (
         diff == 1
@@ -127,9 +127,9 @@ def run():
     values = all_values[-1]
     cbar = plot_it(ax, values, 0.0)
     if islog:
-        cbar.set_label("Log of gap")
+        cbar.set_label(r"$\ln(\abs{\lambda}_{\text{min}})$")
     else:
-        cbar.set_label("Gap")
+        cbar.set_label(r"$\abs{\lambda}_{\text{min}}$")
 
     def place_label(ax, alpha, beta, gamma, text, offset=(0, 0), **kwargs):
         p = np.array([[alpha, beta, gamma]], dtype=float)
