@@ -230,13 +230,14 @@ class Generators:
                 if w != 0:
                     op = self.eta_vector_to_pauli_map[i]
                     path = self.eta_vector_to_path_map[i]
-                    print(path)
                     assert op.is_equal_to(self.path_to_operator(path))
                     path_without_mode = path[0].copy()
                     path_without_mode.remove(-1)
-                    assert graph_helper.is_induced_path(
+                    is_induced, is_path = graph_helper.is_induced_path(
                         graph, path_without_mode
                     )
+                    assert is_induced
+                    assert is_path
 
     def init_gammas(self, do_checks: bool = True, do_eigval_zero_check: bool = True):
         """
@@ -412,7 +413,7 @@ class Generators:
             for j in range(i + 1, self.num_generators):
                 self.eta_bilinears[(i, j)] = self.etas[i].multiply(self.etas[j])
         self.eta_bilinears[(0, 0)] = PauliSum(
-            [(np.float64(1.0), Pauli.identity(self.n))]
+            [(np.float64(self.simplicial_mode[0]**2), Pauli.identity(self.n))]
         )
 
     def init_eta_path_bilinears(

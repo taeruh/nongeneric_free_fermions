@@ -1,4 +1,4 @@
-def is_induced_path(graph, path) -> bool:
+def is_induced_path(graph, path) -> tuple[bool, bool]:
     length = len(path)
     is_induced = True
     is_path = True
@@ -20,8 +20,4 @@ def is_induced_path(graph, path) -> bool:
                 break
         if (not is_induced) or (not is_path):
             break
-    if not (is_induced and is_path):
-        print(
-            f"Path {path} is not an induced path: is_induced={is_induced}, is_path={is_path}"
-        )
-    return is_induced and is_path
+    return is_induced, is_path

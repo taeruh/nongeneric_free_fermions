@@ -12,11 +12,13 @@ import graph_helper
 
 
 def run():
-    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    fendley = Fendley(3, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
     graph = fendley.hamiltonian.get_frustration_graph()
-    # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
+    # simplicial_mode = fendley.example_simplicial_modes["IIYII"]
+    simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"]
-    simplicial_mode = fendley.example_simplicial_modes["IIZZZ"]
+    # simplicial_mode = fendley.example_simplicial_modes["IIZZZ"]
+    # simplicial_mode = fendley.example_simplicial_modes["IIIIX"]
     generators = Generators(
         (1.0, simplicial_mode[0]),
         fendley.hamiltonian,
@@ -27,29 +29,62 @@ def run():
     generators.init_gamma_bilinears()
     generators.init_eta_bilinears()
 
-    # generators.init_eta_currents()
-
-    for vec in generators.eta_vectors:
-        for i, w in enumerate(vec):
-            if w != 0:
-                op = generators.eta_vector_to_pauli_map[i]
-                path = generators.eta_vector_to_path_map[i]
-                print(f"{w:5.1f} {op.to_string()} {path}")
-        print()
-
     generators.init_eta_path_bilinears([i for i in range(simplicial_mode[1])], graph)
     # graph.plot().save_image("output/fendley_graph.pdf")  # pyright: ignore
 
+    incorrect_paths = dict()
+    len_incorrect_paths = 0
+
     for i in range(generators.num_generators):
         for j in range(i + 1, generators.num_generators):
-            print(i, j)
-            print(
-                [
-                    (f"{w}", path, graph_helper.is_induced_path(graph, path[0]))
-                    for (w, path) in generators.eta_path_bilinears[(i, j)]
-                ]
-            )
-            print()
+            for _, (path, phase) in generators.eta_path_bilinears[(i, j)]:
+                is_induced, is_path = graph_helper.is_induced_path(graph, path)
+                if not (is_induced and is_path):
+                    tuple_path = tuple(path)  # pyright: ignore
+                    if tuple_path not in incorrect_paths:
+                        incorrect_paths[tuple_path] = (len_incorrect_paths, phase)
+                        len_incorrect_paths += 1
+
+    dim = len(incorrect_paths)
+    labels = []
+    vectors = []
+    for i in range(generators.num_generators):
+        for j in range(i + 1, generators.num_generators):
+            is_all_correct = True
+            label = (i, j)
+            vector = [int(0.0) for _ in range(dim)]
+            for weight, (path, phase) in generators.eta_path_bilinears[(i, j)]:
+                tuple_path = tuple(path)  # pyright: ignore
+                value = incorrect_paths.get(tuple_path, None)
+                if value is not None:
+                    is_all_correct = False
+                    index, fixed_phase = value
+                    phase_diff = (phase - fixed_phase) % 4
+                    assert phase_diff in [0, 2]
+                    vector[index] = int(weight * (-1) ** (phase_diff // 2))
+            if not is_all_correct:
+                labels.append(label)
+                vectors.append(vector)
+
+            # print(label, vector)
+
+    for i, (label, vector) in enumerate(zip(labels, vectors)):
+        print(f"x{i}", label)
+        print(vector)
+        print()
+
+    from sympy import Matrix, symbols, linsolve
+
+    num_cols = len(vectors)
+    system = Matrix(vectors)
+    system = system.transpose()
+    vars = symbols(f"x0:{num_cols}")
+    solution = linsolve((system, Matrix.zeros(system.rows, 1)), vars)
+    print(f"solution: {solution}")
+
+    # free_vars
+    # zero_vars
+    # dependent_vars
 
     return
 
@@ -71,7 +106,6 @@ def run():
     # for current in generators.eta_currents:
     #     print([(w, p.to_string()) for (w, p) in current.to_py_list()])
     #     print()
-
 
     path_ops = []
     paths = []
