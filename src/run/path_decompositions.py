@@ -12,10 +12,10 @@ import graph_helper
 
 
 def run():
-    fendley = Fendley(3, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    fendley = Fendley(4, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
     graph = fendley.hamiltonian.get_frustration_graph()
-    # simplicial_mode = fendley.example_simplicial_modes["IIYII"]
-    simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
+    simplicial_mode = fendley.example_simplicial_modes["IIYII"]
+    # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIIIX"]
@@ -34,18 +34,27 @@ def run():
 
     incorrect_paths = dict()
     len_incorrect_paths = 0
+    allowed_lengths = set([2, 3, 4, 5])
+
+    def incorrect_filter(path) -> bool:
+        if len(path) not in allowed_lengths:
+            return False
+        is_induced, is_path = graph_helper.is_induced_path(graph, path)
+        if not (is_induced and is_path):
+            return False
+        return True
 
     for i in range(generators.num_generators):
         for j in range(i + 1, generators.num_generators):
             for _, (path, phase) in generators.eta_path_bilinears[(i, j)]:
-                is_induced, is_path = graph_helper.is_induced_path(graph, path)
-                if not (is_induced and is_path):
+                if not incorrect_filter(path):
                     tuple_path = tuple(path)  # pyright: ignore
                     if tuple_path not in incorrect_paths:
                         incorrect_paths[tuple_path] = (len_incorrect_paths, phase)
                         len_incorrect_paths += 1
 
     dim = len(incorrect_paths)
+    all_okay_bilinears = []
     labels = []
     vectors = []
     for i in range(generators.num_generators):
@@ -65,6 +74,8 @@ def run():
             if not is_all_correct:
                 labels.append(label)
                 vectors.append(vector)
+            else:
+                all_okay_bilinears.append(label)
 
             # print(label, vector)
 
@@ -82,9 +93,26 @@ def run():
     solution = linsolve((system, Matrix.zeros(system.rows, 1)), vars)
     print(f"solution: {solution}")
 
-    # free_vars
-    # zero_vars
-    # dependent_vars
+    print(all_okay_bilinears)
+
+    return
+
+    b2 = generators.eta_bilinears[labels[2]]
+    b0 = generators.eta_bilinears[labels[0]]
+
+    b0.multiply_with_float(3.0)
+
+    s = b2.add(b0)
+    print([(w, p.to_string()) for (w, p) in s.to_py_list()])
+
+    p2 = generators.eta_path_bilinears[labels[2]]
+    p0 = generators.eta_path_bilinears[labels[0]]
+
+    p0 = [(w * 3.0, (path, phase)) for w, (path, phase) in p0]
+
+    s = generators.add_path_sums(p2, p0)
+    print([(float(w), (p[0], p[1])) for (w, p) in s])
+    print([(float(w), generators.path_to_operator(p).to_string()) for (w, p) in s])
 
     return
 
@@ -144,7 +172,7 @@ def run():
         projections.append(generators.bilinear_gamma_projection(path_op))
 
     # allowed_lengths = set([2, 4])
-    allowed_lengths = set([2, 2])
+    allowed_lengths = set([3, 3])
     # allowed_lengths = set([2])
     restricted_path_indices = []
     for i, path in enumerate(paths):

@@ -14,7 +14,8 @@ from rust_backend.fendley import Fendley as RustFendley
 
 def run():
     low_num_triangles = 1
-    up_num_triangles = 14
+    # up_num_triangles = 14
+    up_num_triangles = 8
 
     alpha = ConstantWeight(np.float64(1))
     beta = ConstantWeight(np.float64(1))
@@ -23,10 +24,10 @@ def run():
     simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
     # simplicial_mode_choices = ["IIZZZ"]
 
-    do_calculation = True
-    # do_calculation = False
-    # do_plot = True
-    do_plot = False
+    # do_calculation = True
+    do_calculation = False
+    do_plot = True
+    # do_plot = False
 
     file_identifier = (
         f"num_vertices_{alpha}_{beta}_{gamma}_{currents_alpha}"
@@ -140,8 +141,8 @@ def run():
         ]
         x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
         for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
-            xcut = x[0:-1]
-            ycut = y[0:-1]
+            xcut = x[1:-1]
+            ycut = y[1:-1]
             # xcut = x
             # ycut = y
             ax = fig.add_subplot(gs[i, 0])
@@ -183,8 +184,8 @@ def p(
     a,
     b,
     c,
-    d,
-    e,
+    # d,
+    # e,
     # f,
     # g,
     # h,
@@ -193,17 +194,17 @@ def p(
     # k,
 ):
     return (
-        a * x**2
-        + b * x**3
-        + c * x**4
-        + d * x**5
-        + e * x**6
-        # + f * x**7
-        # + g * x**8
-        # + h * x**9
-        # +i * x**10
-        # + j * x**11
-        # + k * x**12
+        a * x**1
+        + b * x**2
+        + c * x**3
+        # + d * x**4
+        # + e * x**5
+        # + f * x**6
+        # + g * x**7
+        # + h * x**8
+        # +i * x**9
+        # + j * x**10
+        # + k * x**11
     )
 
 

@@ -222,6 +222,37 @@ class Generators:
         path_op.add_to_phase(path[1])
         return path_op
 
+    def add_path_sums(
+        self,
+        pathsum1: list[tuple[float, tuple[list[int], int]]],
+        pathsum2: list[tuple[float, tuple[list[int], int]]],
+    ) -> list[tuple[float, tuple[list[int], int]]]:
+        """
+        helper to add path_sums in self.eta_vector_to_path_map and self.eta_path_bilinears
+        """
+        pathsum = pathsum1.copy()
+        for weight, (path, phase) in pathsum2:
+            already_in = False
+            for pbi, (oweight, (opath, ophase)) in enumerate(pathsum):
+                if opath == path:
+                    phase_diff = (phase - ophase) % 4
+                    assert phase_diff in [0, 2]
+                    pathsum[pbi] = (
+                        oweight + weight * (-1) ** (phase_diff // 2),
+                        (opath, ophase),
+                    )
+                    already_in = True
+                    break
+            if not already_in:
+                pathsum.append((weight, (path, phase)))
+        to_remove = []
+        for pbi, (weight, _) in enumerate(pathsum):
+            if np.isclose(weight, 0.0):
+                to_remove.append(pbi)
+        for pbi in reversed(to_remove):
+            del pathsum[pbi]
+        return pathsum
+
     def test_path_decompositions(self, graph: Graph | None = None):
         if graph is None:
             graph = self.hamiltonian.get_frustration_graph()
@@ -413,7 +444,7 @@ class Generators:
             for j in range(i + 1, self.num_generators):
                 self.eta_bilinears[(i, j)] = self.etas[i].multiply(self.etas[j])
         self.eta_bilinears[(0, 0)] = PauliSum(
-            [(np.float64(self.simplicial_mode[0]**2), Pauli.identity(self.n))]
+            [(np.float64(self.simplicial_mode[0] ** 2), Pauli.identity(self.n))]
         )
 
     def init_eta_path_bilinears(
@@ -428,7 +459,7 @@ class Generators:
         for vertex in connections:
             graph.add_edge(-1, vertex)
         self.eta_path_bilinears: dict[
-            tuple[int, int], list[tuple[float, list[int]]]
+            tuple[int, int], list[tuple[float, tuple[list[int], int]]]
         ] = dict()
         for i in range(self.num_generators):
             for j in range(i + 1, self.num_generators):

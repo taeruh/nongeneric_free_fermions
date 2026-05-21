@@ -118,11 +118,11 @@ def run():
             ],
         ):
             ax.plot(x, y, label=rf"$\chi = {label}$")
-        ax.set_ylabel(rf"$\#$ claws")
+        ax.set_ylabel(rf"$N_C$")
         ax.set_xticks(x)
         ax.set_yscale("log")
-        ax.set_xlabel("Number of triangles")
+        ax.set_xlabel("N")
         handles, labels = ax.get_legend_handles_labels()
         ax.legend(handles, labels, loc="upper left")
-        plt.subplots_adjust(top=0.97, bottom=0.06, left=0.08, right=0.95)
+        plt.subplots_adjust(top=0.97, bottom=0.10, left=0.08, right=0.95)
         plt.savefig("output/final/number_of_claws.pdf")
