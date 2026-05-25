@@ -109,19 +109,20 @@ def run():
         gs = fig.add_gridspec(1, 1)
         ax = fig.add_subplot(gs[0, 0])
         x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
+        labels = [
+            r"\sigma^z_1 \sigma^z_2 \sigma^z_3",
+            r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4",
+            r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4 \sigma^z_5",
+        ]
         for y, label in zip(
             all_num_claws,
-            [
-                r"\sigma^z_1 \sigma^z_2 \sigma^z_3",
-                r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4",
-                r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4 \sigma^z_5",
-            ],
+            labels,
         ):
             ax.plot(x, y, label=rf"$\chi = {label}$")
-        ax.set_ylabel(rf"$N_C$")
+        ax.set_ylabel(r"Number of claws $N_C$")
         ax.set_xticks(x)
         ax.set_yscale("log")
-        ax.set_xlabel("N")
+        ax.set_xlabel(r"Number of triangles $N$")
         handles, labels = ax.get_legend_handles_labels()
         ax.legend(handles, labels, loc="upper left")
         plt.subplots_adjust(top=0.97, bottom=0.10, left=0.08, right=0.95)

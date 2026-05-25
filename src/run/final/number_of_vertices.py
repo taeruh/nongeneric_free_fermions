@@ -10,12 +10,13 @@ from krylov import Generators
 from integer_krylov import IntegerGenerators
 from rust_backend.krylov_without_gram_schmidt import GeneratorsWithoutGramSchmidt
 from rust_backend.fendley import Fendley as RustFendley
+from . import utils
 
 
 def run():
     low_num_triangles = 1
-    # up_num_triangles = 14
-    up_num_triangles = 8
+    up_num_triangles = 13
+    # up_num_triangles = 8
 
     alpha = ConstantWeight(np.float64(1))
     beta = ConstantWeight(np.float64(1))
@@ -24,10 +25,10 @@ def run():
     simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
     # simplicial_mode_choices = ["IIZZZ"]
 
-    # do_calculation = True
-    do_calculation = False
-    do_plot = True
-    # do_plot = False
+    do_calculation = True
+    # do_calculation = False
+    # do_plot = True
+    do_plot = False
 
     file_identifier = (
         f"num_vertices_{alpha}_{beta}_{gamma}_{currents_alpha}"
@@ -129,83 +130,101 @@ def run():
             all_num_vertices = data["all_num_vertices"]
 
     if do_plot:
-        num_axes = len(simplicial_mode_choices)
-        fig = plt.figure(figsize=(10, 5 * num_axes))
-        gs = fig.add_gridspec(num_axes, 1)
-        axes = []
-        # fitting_functions = [p2, p3, p4, p5, p6, p7, p8, p9, p10, exp_2, exp]
-        fitting_functions = [p, exp]
-        colormap = plt.get_cmap("plasma")
-        colors = [
-            colormap(i / len(fitting_functions)) for i in range(len(fitting_functions))
+        utils.paper_setup()
+        fig = plt.figure(figsize=utils.set_size(height_in_width=0.7))
+        gs = fig.add_gridspec(1, 1)
+        ax = fig.add_subplot(gs[0, 0])
+
+        poly_degree = 5
+        fitting_functions = [
+            (exp, rf"$\text{{exp}}$"),
+            (mono(poly_degree), rf"$\text{{mono}}[{poly_degree}]$"),
+            (poly(poly_degree), rf"$\text{{poly}}[{poly_degree}]$"),
+        ]
+        linestyles = ["dashed", "dashdot", "dotted"]
+        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+        labels = [
+            r"\sigma^z_1 \sigma^z_2 \sigma^z_3",
+            r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4",
+            r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4 \sigma^z_5",
         ]
         x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
         for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
-            xcut = x[1:-1]
-            ycut = y[1:-1]
-            # xcut = x
-            # ycut = y
-            ax = fig.add_subplot(gs[i, 0])
-            axes.append(ax)
-            ax.plot(x, y, label="data", color="black")
-            ax.set_ylabel(f"Number of vertices with {label} simplicial mode")
-            ax.set_xticks(x)
-            ax.set_yscale("log")
+            ax.plot(x, y, label=rf"$\chi = {labels[i]}$", color=colors[i])
 
-            for i, fn in enumerate(fitting_functions):
-                try:
-                    popt, _ = optimize.curve_fit(fn, xcut, ycut)
-                    print(popt)
-                    long_x = np.arange(low_num_triangles, up_num_triangles + 1, 0.1)
-                    ax.plot(
-                        long_x,
-                        fn(np.array(long_x), *popt),
-                        label=f"{fn.__name__} fit",
-                        linestyle="dashed",
-                        color=colors[i],
-                    )
-                except RuntimeError:
-                    print(f"Could not fit {fn.__name__} for {label} simplicial mode")
+        y = all_num_vertices[0]
+        # xcut = x[1:-1]
+        # ycut = y[1:-1]
+        xcut = x
+        ycut = y
+        for i, (fn, fn_name) in enumerate(fitting_functions):
+            try:
+                popt, _ = optimize.curve_fit(fn, xcut, ycut)
+                print(popt)
+                long_x = np.arange(low_num_triangles, up_num_triangles + 1, 0.1)
+                ax.plot(
+                    long_x,
+                    fn(np.array(long_x), *popt),
+                    label=rf"{fn_name} fit ${labels[0]}$",
+                    linestyle=linestyles[i],
+                    color=colors[0],
+                )
+            except RuntimeError:
+                print(f"Could not fit {fn.__name__}")
 
-        ax = axes[0]
         handles, labels = ax.get_legend_handles_labels()
         ax.legend(handles, labels)
 
-        ax = axes[num_axes - 1]
-        ax.set_xlabel("Number of triangles")
-
-        # plt.tight_layout()
-        plt.subplots_adjust(top=0.95, bottom=0.06, left=0.08, right=0.95)
+        ax.set_ylabel(r"Number of vertices $N_V$")
+        ax.set_xticks(x)
+        ax.set_yscale("log")
+        ax.set_xlabel(r"Number of triangles $N$")
+        plt.subplots_adjust(top=0.97, bottom=0.10, left=0.08, right=0.95)
         plt.savefig("output/final/number_of_vertices.pdf")
 
 
-def p(
-    x,
-    a,
-    b,
-    c,
-    # d,
-    # e,
-    # f,
-    # g,
-    # h,
-    # i,
-    # j,
-    # k,
-):
-    return (
-        a * x**1
-        + b * x**2
-        + c * x**3
-        # + d * x**4
-        # + e * x**5
-        # + f * x**6
-        # + g * x**7
-        # + h * x**8
-        # +i * x**9
-        # + j * x**10
-        # + k * x**11
-    )
+def poly(degree):
+    if degree == 0:
+        return lambda _, a: a
+    elif degree == 1:
+        return lambda x, a, b: a * x + b
+    elif degree == 2:
+        return lambda x, a, b, c: a * x**2 + b * x + c
+    elif degree == 3:
+        return lambda x, a, b, c, d: a * x**3 + b * x**2 + c * x + d
+    elif degree == 4:
+        return lambda x, a, b, c, d, e: a * x**4 + b * x**3 + c * x**2 + d * x + e
+    elif degree == 5:
+        return lambda x, a, b, c, d, e, f: (
+            a * x**5 + b * x**4 + c * x**3 + d * x**2 + e * x + f
+        )
+    elif degree == 6:
+        return lambda x, a, b, c, d, e, f, g: (
+            a * x**6 + b * x**5 + c * x**4 + d * x**3 + e * x**2 + f * x + g
+        )
+    elif degree == 7:
+        return lambda x, a, b, c, d, e, f, g, h: (
+            a * x**7 + b * x**6 + c * x**5 + d * x**4 + e * x**3 + f * x**2 + g * x + h
+        )
+
+def mono(degree):
+    if degree == 0:
+        return lambda _, a: a
+    elif degree == 1:
+        return lambda x, a: a * x
+    elif degree == 2:
+        return lambda x, a: a * x**2
+    elif degree == 3:
+        return lambda x, a: a * x**3
+    elif degree == 4:
+        return lambda x, a: a * x**4
+    elif degree == 5:
+        return lambda x, a: a * x**5
+    elif degree == 6:
+        return lambda x, a: a * x**6
+    elif degree == 7:
+        return lambda x, a: a * x**7
+
 
 
 def exp_2(x, a, b):

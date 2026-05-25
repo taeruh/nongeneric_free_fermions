@@ -16,6 +16,11 @@ def run():
     num_points = 20000
     nums_triangles = [20, 30, 50, 100]
 
+    # cw_low = 0
+    # cw_high = np.log10(2)
+    # num_points = 20
+    # nums_triangles = [20]
+
     data_file = (
         "output/final/data/currents_phase_"
         + f"{alpha2}_{beta2}_{gamma2}_{fendley_weight}_{cw_low}_{cw_high}_{num_points}_"

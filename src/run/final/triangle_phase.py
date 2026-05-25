@@ -12,14 +12,15 @@ def run():
     num_triangles = 20
     fendley_weight = 1.0
     abc_lower = 1
-    abc_upper = 20
+    abc_upper = 100
+    # abc_upper = 13
     num_samples = abc_upper - abc_lower
-    cw_low = 1.4
-    cw_high = 2.6
-    num_points = 41
+    cw_low = 1.5
+    cw_high = 2.1
+    num_points = 15
 
-    num_rows = 6
-    num_cols = 7
+    num_rows = 4
+    num_cols = 4
     diff = num_rows * num_cols - num_points
     assert (
         diff == 1
@@ -108,13 +109,13 @@ def run():
 
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cax = divider.append_axes("right", size="5%", pad=0.09)
         cbar = plt.colorbar(tpc, cax=cax)
         ax.set_aspect("equal")
         ax.axis("off")
         ax.set_title(
             rf"$a = {cw:.3f}$",
-            pad=9,
+            pad=7,
         )
         return cbar
 
@@ -127,7 +128,7 @@ def run():
     values = all_values[-1]
     cbar = plot_it(ax, values, 0.0)
     if islog:
-        cbar.set_label(r"$\ln(\abs{\lambda}_{\text{min}})$")
+        cbar.set_label(r"$\ln\left(\abs{\lambda}_{\text{min}}\right)$")
     else:
         cbar.set_label(r"$\abs{\lambda}_{\text{min}}$")
 
@@ -150,7 +151,7 @@ def run():
         rf"$\alpha={abc_upper}$",
         ha="right",
         va="top",
-        offset=(-0.03, -0.02),
+        offset=(0.13, -0.04),
     )
     place_label(
         ax,
@@ -160,7 +161,7 @@ def run():
         rf"$\beta={abc_upper}$",
         ha="left",
         va="top",
-        offset=(0.03, -0.02),
+        offset=(-0.13, -0.04),
     )
     place_label(
         ax,
@@ -170,7 +171,7 @@ def run():
         rf"$\gamma={abc_upper}$",
         ha="center",
         va="bottom",
-        offset=(0.0, 0.03),
+        offset=(0.0, -0.02),
     )
     place_label(
         ax,
