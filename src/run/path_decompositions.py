@@ -12,7 +12,7 @@ import graph_helper
 
 
 def run():
-    fendley = Fendley(4, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    fendley = Fendley(3, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
     graph = fendley.hamiltonian.get_frustration_graph()
     simplicial_mode = fendley.example_simplicial_modes["IIYII"]
     # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
@@ -34,7 +34,9 @@ def run():
 
     incorrect_paths = dict()
     len_incorrect_paths = 0
-    allowed_lengths = set([2, 3, 4, 5])
+    # length 0 is the identity, which we generally allow
+    allowed_lengths = set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+    # allowed_lengths = set([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
 
     def incorrect_filter(path) -> bool:
         if len(path) not in allowed_lengths:
@@ -94,6 +96,7 @@ def run():
     print(f"solution: {solution}")
 
     print(all_okay_bilinears)
+    print(len(generators.etas))
 
     return
 

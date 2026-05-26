@@ -283,7 +283,7 @@ class Calculation:
             self.gap = 0.0
             return
         min_abs_lm = min(abs(x) for _, x in lm_pairs)
-        self.gap = min_abs_lm * norm
+        self.gap = min_abs_lm * norm * 2
         # print(f"Computing gap took {time.time() - start:.10f} seconds.")
 
 
@@ -400,51 +400,3 @@ def integer_points_to_plot_coordinates(
     shifted = ret_points - lower
     normalized = shifted / total
     return points_to_plot_coordinates(normalized)
-
-    # start = time.time()
-    # self.effective_norm = []
-    # for i in range(self.num_triangles):
-    #     lagrange = np.float128(1.0)
-    #     for j in range(self.num_triangles):
-    #         if i == j:
-    #             continue
-    #         lagrange *= self.roots[j] / (self.roots[j] - self.roots[i])
-    #         if self.roots[i] == self.roots[j]:
-    #             print(
-    #                 "Warning: roots[i] == roots[j], this may cause numerical instability."
-    #             )
-    #             print(self.roots[i], self.roots[j])
-    #             print(self.wolfram_results["Roots"])
-    #             assert False
-    #     assert np.sign(self.pm_factors[i]) == np.sign(lagrange)
-    #     effective_norm = (
-    #         np.sqrt(np.abs(self.pm_factors[i]))
-    #         * np.sqrt(self.poly3norm)
-    #         * np.sqrt(np.abs(lagrange))
-    #     )
-    #     self.effective_norm.append(effective_norm)
-    # print(f"Calculating effective norms took {time.time() - start:.10f} seconds.")
-
-    # mus = []
-    # for l in range(self.num_currents):
-    #     l = 1 + 2 * l
-    #     print(l)
-    #     mul = np.zeros(
-    #         self.num_triangles * self.num_triangles, dtype=np.float128
-    #     )
-    #     for m in range(self.num_triangles):
-    #         for n in range(self.num_triangles):
-    #             mu = np.float128(
-    #                 2
-    #                 * (-1) ** (((l - 1) // 2) % 2)
-    #                 * self.effective_norm[m]
-    #                 * self.effective_norm[n]
-    #             )
-    #             eps_sum = np.float128(0.0)
-    #             for i in range(l):
-    #                 if i % 2 == 0:
-    #                     eps_sum += self.eps[m] ** i * self.eps[n] ** (l - i)
-    #                 else:
-    #                     eps_sum += self.eps[n] ** i * self.eps[m] ** (l - i)
-    #             mul[m * self.num_triangles + n] = mu * eps_sum
-    #     mus.append(mul)
