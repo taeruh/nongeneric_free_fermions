@@ -128,9 +128,9 @@ def run():
     values = all_values[-1]
     cbar = plot_it(ax, values, 0.0)
     if islog:
-        cbar.set_label(r"$\ln\left(\abs{\lambda}_{\text{min}}\right)$")
+        cbar.set_label(r"$\ln\left(\Delta\right)$")
     else:
-        cbar.set_label(r"$\abs{\lambda}_{\text{min}}$")
+        cbar.set_label(r"$\Delta$")
 
     def place_label(ax, alpha, beta, gamma, text, offset=(0, 0), **kwargs):
         p = np.array([[alpha, beta, gamma]], dtype=float)

@@ -25,10 +25,10 @@ def run():
     simplicial_mode_choices = ["IIZZZ", "IZZZZ", "ZZZZZ"]
     # simplicial_mode_choices = ["IIZZZ"]
 
-    do_calculation = True
-    # do_calculation = False
-    # do_plot = True
-    do_plot = False
+    # do_calculation = True
+    do_calculation = False
+    do_plot = True
+    # do_plot = False
 
     file_identifier = (
         f"num_vertices_{alpha}_{beta}_{gamma}_{currents_alpha}"
@@ -167,7 +167,7 @@ def run():
                     fn(np.array(long_x), *popt),
                     label=rf"{fn_name} fit ${labels[0]}$",
                     linestyle=linestyles[i],
-                    color=colors[0],
+                    color=colors[3],
                 )
             except RuntimeError:
                 print(f"Could not fit {fn.__name__}")
@@ -206,6 +206,34 @@ def poly(degree):
         return lambda x, a, b, c, d, e, f, g, h: (
             a * x**7 + b * x**6 + c * x**5 + d * x**4 + e * x**3 + f * x**2 + g * x + h
         )
+    elif degree == 8:
+        return lambda x, a, b, c, d, e, f, g, h, i: (
+            a * x**8
+            + b * x**7
+            + c * x**6
+            + d * x**5
+            + e * x**4
+            + f * x**3
+            + g * x**2
+            + h * x
+            + i
+        )
+    elif degree == 9:
+        return lambda x, a, b, c, d, e, f, g, h, i, j: (
+            a * x**9
+            + b * x**8
+            + c * x**7
+            + d * x**6
+            + e * x**5
+            + f * x**4
+            + g * x**3
+            + h * x**2
+            + i * x
+            + j
+        )
+    else:
+        raise ValueError("not implemented")
+
 
 def mono(degree):
     if degree == 0:
@@ -224,7 +252,12 @@ def mono(degree):
         return lambda x, a: a * x**6
     elif degree == 7:
         return lambda x, a: a * x**7
-
+    elif degree == 8:
+        return lambda x, a: a * x**8
+    elif degree == 9:
+        return lambda x, a: a * x**9
+    else:
+        raise ValueError("not implemented")
 
 
 def exp_2(x, a, b):

@@ -94,7 +94,7 @@ def run():
         max_gap = max(max_gap, max(gap))
 
     ax.set_xlabel(r"Currents weight $a$")
-    ax.set_ylabel(r"Gap $\abs{\lambda}_{\text{min}}$")
+    ax.set_ylabel(r"Gap $\Delta$")
     ax.set_xscale("log")
     ax.set_xlim(currents_weight[0], currents_weight[-1])
     ax.set_ylim(0, max_gap * 1.03)
