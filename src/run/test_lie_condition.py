@@ -15,12 +15,11 @@ import itertools
 
 
 def run():
-    mat = get_mat(1, 1, 1, 1)
+    mat = 2 * get_mat(1, 1, 1, 1)
     print(mat)
     delta = det(mat)
     print(delta)
     return
-
 
     a_values = np.linspace(-10, 10, 20)
     b_values = np.linspace(-10, 10, 20)

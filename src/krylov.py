@@ -258,12 +258,10 @@ class Generators:
         if graph is None:
             graph = self.hamiltonian.get_frustration_graph()
         for vec in self.eta_vectors:
-            print("next")
             for i, w in enumerate(vec):
                 if not np.isclose(w, 0.0):
                     op = self.eta_vector_to_pauli_map[i]
                     path = self.eta_vector_to_path_map[i]
-                    print("p", path)
                     assert op.is_equal_to(self.path_to_operator(path))
                     path_without_mode = path[0].copy()
                     path_without_mode.remove(-1)
@@ -346,13 +344,6 @@ class Generators:
         # self.gammas: list[list[tuple[np.float64, Pauli]]] = []
         self.gammas: list[PauliSum] = []
         for i in range(self.num_generators):
-            # a little bit different to eq. (80) in chapman_unified (why is there this
-            # i^(j mod 2)? I calculated the anticommutator and the conjugation by hand and
-            # I don't think there should be this i) as we define the anti_comm_mat_etas
-            # with a different factor (only divided by dim(hilbert space) instead of 2 *
-            # dim(hilbert space)
-            # TODO:  double check on that these two statements; I'm just guessing here and
-            # set the factor so that the gammas are properly normalised
             factor = np.float64((1 / self.gamma_d[i]) ** (0.5))
             gamma_vector = np.zeros(len(self.eta_vector_to_pauli_map), dtype=np.float64)
             for j in range(self.num_generators):

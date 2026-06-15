@@ -13,8 +13,11 @@ def run():
     fendley_weight = 1.0
     cw_low = -1
     cw_high = 14
-    num_points = 20000
+    num_points = 40000
+    # num_points = 20000
+    # num_points = 20
     nums_triangles = [20, 30, 50, 100]
+    # nums_triangles = [100]
 
     # cw_low = 0
     # cw_high = np.log10(2)
@@ -31,8 +34,8 @@ def run():
     currents_weight = np.linspace(cw_low, cw_high, num_points)
     currents_weight = 10**currents_weight
 
-    # do_calculation = True
-    do_calculation = False
+    do_calculation = True
+    # do_calculation = False
 
     if do_calculation:
         gaps = []
@@ -102,5 +105,5 @@ def run():
     ax.legend(handle, label, loc="upper right")
     ax.tick_params(axis="x", pad=10)
     ax.grid()
-    plt.tight_layout()
+    plt.subplots_adjust(top=0.95, bottom=0.13, left=0.09, right=0.96)
     plt.savefig(f"output/final/currents_phase.pdf")

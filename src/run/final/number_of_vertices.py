@@ -141,7 +141,7 @@ def run():
             (mono(poly_degree), rf"$\text{{mono}}[{poly_degree}]$"),
             # (poly(poly_degree), rf"$\text{{poly}}[{poly_degree}]$"),
         ]
-        linestyles = ["dashed", "dashdot", "dotted"]
+        linestyles = ["dashed", "dotted", "dashdot"]
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         labels = [
             r"\sigma^z_1 \sigma^z_2 \sigma^z_3",
@@ -179,7 +179,7 @@ def run():
         ax.set_xticks(x)
         ax.set_yscale("log")
         ax.set_xlabel(r"Number of triangles $N$")
-        plt.subplots_adjust(top=0.97, bottom=0.10, left=0.08, right=0.95)
+        plt.subplots_adjust(top=0.97, bottom=0.15, left=0.13, right=0.97)
         plt.savefig("output/final/number_of_vertices.pdf")
 
 

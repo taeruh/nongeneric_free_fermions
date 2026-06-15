@@ -3,24 +3,53 @@ from multiprocessing import Pool
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
+from matplotlib.colors import Normalize
 import energy
 from energy import Wolfram
 from . import utils
 
 
 def run():
+
+    name = "dip1"
+    appendix = True
     num_triangles = 20
     fendley_weight = 1.0
     abc_lower = 1
     abc_upper = 100
-    # abc_upper = 13
     num_samples = abc_upper - abc_lower
     cw_low = 1.5
     cw_high = 2.1
     num_points = 15
-
     num_rows = 4
     num_cols = 4
+
+    name = "dip2"
+    appendix = True
+    num_triangles = 20
+    fendley_weight = 1.0
+    abc_lower = 1
+    abc_upper = 15
+    num_samples = abc_upper - abc_lower
+    cw_low = 25
+    cw_high = 39
+    num_points = 15
+    num_rows = 4
+    num_cols = 4
+
+    # name = "dip1"
+    # appendix = False
+    # num_triangles = 20
+    # fendley_weight = 1.0
+    # abc_lower = 1
+    # abc_upper = 25
+    # num_samples = abc_upper - abc_lower
+    # cw_low = 1.75
+    # cw_high = 1.85
+    # num_points = 3
+    # num_rows = 2
+    # num_cols = 2
+
     diff = num_rows * num_cols - num_points
     assert (
         diff == 1
@@ -43,14 +72,14 @@ def run():
         (num_triangles, 0.0, fendley_weight, abc_lower, abc_upper, num_samples)
     )
 
-    # do_calculation = True
-    do_calculation = False
+    do_calculation = True
+    # do_calculation = False
     # islog = False
     islog = True
 
     if do_calculation:
         all_values = []
-        with Pool() as pool:
+        with Pool(10) as pool:
             pool.map(run_config, configs)
 
         for _, currents_weight_factor, _, _, _, _ in configs:
@@ -83,17 +112,41 @@ def run():
 
     utils.paper_setup()
 
-    fig = plt.figure()
+    if appendix:
+        columnwidth = 510
+    else:
+        columnwidth = 246
+    fig = plt.figure(figsize=utils.set_size(columnwidth))
     gs = fig.add_gridspec(num_rows, num_cols)
-    gs.update(wspace=0.25, hspace=-0.5)
+    if appendix:
+        gs.update(wspace=0.25, hspace=-0.5)
+    else:
+        gs.update(wspace=0.25, hspace=-0.3)
 
     points = energy.integer_triangle_grid(num_samples, abc_lower, abc_upper)
     x, y = energy.integer_points_to_plot_coordinates(points, abc_lower, abc_upper)
     triang = tri.Triangulation(x, y)
 
+    # # this does not give really nice plots
+    # #
+    # # use the calculated norm in the triplot below
+    # all_values_for_scaling = []
+    # if islog:
+    #     for values in all_values:
+    #         for value in values:
+    #             all_values_for_scaling.append(np.log(value))
+    # else:
+    #     for values in all_values:
+    #         for value in values:
+    #             all_values_for_scaling.append(value)
+    # min_value = min(all_values_for_scaling)
+    # max_value = max(all_values_for_scaling)
+    # plot_norm = Normalize(vmin=min_value, vmax=max_value)
+
     def plot_it(ax, values, cw):
         if islog:
             values = np.log(values)
+        # tpc = ax.tripcolor(triang, values, shading="gouraud",norm=plot_norm)
         tpc = ax.tripcolor(triang, values, shading="gouraud")
         vertices_bary = np.array(
             [
@@ -108,6 +161,7 @@ def run():
         ax.plot(vx, vy, lw=1)
 
         from mpl_toolkits.axes_grid1 import make_axes_locatable
+
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.09)
         cbar = plt.colorbar(tpc, cax=cax)
@@ -206,9 +260,11 @@ def run():
         offset=(0.04, 0.015),
     )
 
-    # plt.tight_layout()
-    plt.subplots_adjust(left=0.03, right=0.90, top=0.98, bottom=0.02)
-    plt.savefig(f"output/final/triangle_phase.pdf")
+    if appendix:
+        plt.subplots_adjust(left=0.03, right=0.90, top=0.98, bottom=0.02)
+    else:
+        plt.subplots_adjust(left=0.05, right=0.90, top=0.98, bottom=0.02)
+    plt.savefig(f"output/final/triangle_phase_{name}_appendix_{appendix}.pdf")
 
 
 def run_config(config):
