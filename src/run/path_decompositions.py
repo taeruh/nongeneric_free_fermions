@@ -12,10 +12,10 @@ import graph_helper
 
 
 def run():
-    fendley = Fendley(3, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
     graph = fendley.hamiltonian.get_frustration_graph()
-    simplicial_mode = fendley.example_simplicial_modes["IIYII"]
-    # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
+    # simplicial_mode = fendley.example_simplicial_modes["IIYII"]
+    simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIIIX"]
@@ -25,9 +25,28 @@ def run():
     )
     generators.test_path_decompositions(graph)
 
-    generators.init_gammas(do_eigval_zero_check=False)
+    mat = generators.init_gammas(do_eigval_zero_check=False)
+
     generators.init_gamma_bilinears()
     generators.init_eta_bilinears()
+    generators.init_full_eta_bilinears()
+
+    for i in range(generators.num_generators):
+        for j in range(i + 1, generators.num_generators):
+            print(
+                (i, j),
+                [
+                    (w, p.to_string())
+                    for (w, p) in generators.full_eta_bilinears[(i, j)].to_py_list()
+                ],
+            )
+            print(
+                (j, i),
+                [
+                    (w, p.to_string())
+                    for (w, p) in generators.full_eta_bilinears[(j, i)].to_py_list()
+                ],
+            )
 
     generators.init_eta_path_bilinears([i for i in range(simplicial_mode[1])], graph)
     # graph.plot().save_image("output/fendley_graph.pdf")  # pyright: ignore
@@ -98,26 +117,22 @@ def run():
     print(all_okay_bilinears)
     print(len(generators.etas))
 
-    return
+    # b2 = generators.eta_bilinears[labels[2]]
+    # b0 = generators.eta_bilinears[labels[0]]
 
-    b2 = generators.eta_bilinears[labels[2]]
-    b0 = generators.eta_bilinears[labels[0]]
+    # b0.multiply_with_float(3.0)
 
-    b0.multiply_with_float(3.0)
+    # s = b2.add(b0)
+    # print([(w, p.to_string()) for (w, p) in s.to_py_list()])
 
-    s = b2.add(b0)
-    print([(w, p.to_string()) for (w, p) in s.to_py_list()])
+    # p2 = generators.eta_path_bilinears[labels[2]]
+    # p0 = generators.eta_path_bilinears[labels[0]]
 
-    p2 = generators.eta_path_bilinears[labels[2]]
-    p0 = generators.eta_path_bilinears[labels[0]]
+    # p0 = [(w * 3.0, (path, phase)) for w, (path, phase) in p0]
 
-    p0 = [(w * 3.0, (path, phase)) for w, (path, phase) in p0]
-
-    s = generators.add_path_sums(p2, p0)
-    print([(float(w), (p[0], p[1])) for (w, p) in s])
-    print([(float(w), generators.path_to_operator(p).to_string()) for (w, p) in s])
-
-    return
+    # s = generators.add_path_sums(p2, p0)
+    # print([(float(w), (p[0], p[1])) for (w, p) in s])
+    # print([(float(w), generators.path_to_operator(p).to_string()) for (w, p) in s])
 
     # print(
     #     [
@@ -174,8 +189,8 @@ def run():
     for path_op in path_ops:
         projections.append(generators.bilinear_gamma_projection(path_op))
 
-    # allowed_lengths = set([2, 4])
-    allowed_lengths = set([3, 3])
+    allowed_lengths = set([2, 4])
+    # allowed_lengths = set([3, 3])
     # allowed_lengths = set([2])
     restricted_path_indices = []
     for i, path in enumerate(paths):

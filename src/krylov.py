@@ -1,6 +1,7 @@
 import numpy as np
 from sage.all import Graph
 from numpy import linalg
+from numpy.typing import NDArray
 import scipy
 
 from hamiltonian import Hamiltonian
@@ -257,10 +258,12 @@ class Generators:
         if graph is None:
             graph = self.hamiltonian.get_frustration_graph()
         for vec in self.eta_vectors:
+            print("next")
             for i, w in enumerate(vec):
-                if w != 0:
+                if not np.isclose(w, 0.0):
                     op = self.eta_vector_to_pauli_map[i]
                     path = self.eta_vector_to_path_map[i]
+                    print("p", path)
                     assert op.is_equal_to(self.path_to_operator(path))
                     path_without_mode = path[0].copy()
                     path_without_mode.remove(-1)
@@ -270,7 +273,9 @@ class Generators:
                     assert is_induced
                     assert is_path
 
-    def init_gammas(self, do_checks: bool = True, do_eigval_zero_check: bool = True):
+    def init_gammas(
+        self, do_checks: bool = True, do_eigval_zero_check: bool = True
+    ) -> NDArray[np.float64]:
         """
         do_eigval_zero_check is not correct anymore when we have many triangles (about 5
         and more; might also depend on alpha, beta, gamma) because then we actually get
@@ -419,6 +424,8 @@ class Generators:
 
         # }}}
 
+        return anti_comm_mat_etas * scale
+
     def init_gamma_bilinears(self):
         """multiplied an "i" in to make them hermitian"""
         # PERF: this loop takes quite some time
@@ -446,6 +453,13 @@ class Generators:
         self.eta_bilinears[(0, 0)] = PauliSum(
             [(np.float64(self.simplicial_mode[0] ** 2), Pauli.identity(self.n))]
         )
+
+    def init_full_eta_bilinears(self):
+        """these are not necessarily hermitian"""
+        self.full_eta_bilinears: dict[tuple[int, int], PauliSum] = dict()
+        for i in range(self.num_generators):
+            for j in range(self.num_generators):
+                self.full_eta_bilinears[(i, j)] = self.etas[i].multiply(self.etas[j])
 
     def init_eta_path_bilinears(
         self, connections: list[int], graph: Graph | None = None, test_them: bool = True

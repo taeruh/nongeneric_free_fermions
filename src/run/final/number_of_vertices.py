@@ -139,7 +139,7 @@ def run():
         fitting_functions = [
             (exp, rf"$\text{{exp}}$"),
             (mono(poly_degree), rf"$\text{{mono}}[{poly_degree}]$"),
-            (poly(poly_degree), rf"$\text{{poly}}[{poly_degree}]$"),
+            # (poly(poly_degree), rf"$\text{{poly}}[{poly_degree}]$"),
         ]
         linestyles = ["dashed", "dashdot", "dotted"]
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
