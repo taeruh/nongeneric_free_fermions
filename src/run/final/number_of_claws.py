@@ -24,8 +24,9 @@ def run():
     do_plot = True
     # do_plot = False
 
-    file_identifier = f"num_claws_{alpha}_{beta}_{gamma}_{currents_alpha}" + "-".join(
-        simplicial_mode_choices
+    file_identifier = (
+        f"num_claws_{alpha}_{beta}_{gamma}_{currents_alpha}_{low_num_triangles}_{up_num_triangles}_"
+        + "-".join(simplicial_mode_choices)
     )
     data_file = f"output/final/data/{file_identifier}.json"
 

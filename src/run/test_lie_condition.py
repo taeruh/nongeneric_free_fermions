@@ -15,15 +15,16 @@ import itertools
 
 
 def run():
+
     mat = 2 * get_mat(1, 1, 1, 1)
     print(mat)
     delta = det(mat)
     print(delta)
     return
 
-    a_values = np.linspace(-10, 10, 20)
-    b_values = np.linspace(-10, 10, 20)
-    c_values = np.linspace(-10, 10, 20)
+    a_values = np.linspace(-1, 1, 10)
+    b_values = np.linspace(-1, 1, 10)
+    c_values = np.linspace(-1, 1, 10)
     d = 1.0
 
     # remove zero from a_values, b_values, c_values
@@ -32,17 +33,18 @@ def run():
     c_values = c_values[c_values != 0]
 
     y = []
-    max = -float("inf")
-    maxvals = (0, 0, 0)
+    minabs = float("inf")
+    minabsvals = (0, 0, 0)
 
     for a, b, c in itertools.product(a_values, b_values, c_values):
         print(a, b, c)
         mat = get_mat(a, b, c, d)
         delta = det(mat)
+        deltaabs = abs(delta)
         y.append(delta)
-        if delta > max:
-            max = delta
-            maxvals = (a, b, c)
+        if deltaabs < minabs:
+            minabs = deltaabs
+            minabsvals = (a, b, c)
         if delta == 0:
             print("Lie condition not satisfied for a =", a, "b =", b, "c =", c)
             break
@@ -58,7 +60,7 @@ def run():
         #     )
         #     break
 
-    print(max, maxvals)
+    print(minabs, minabsvals)
 
     fig = plt.figure()
     # plot a 3d scatter plot of a, b, c, and y

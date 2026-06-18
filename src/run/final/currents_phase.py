@@ -34,8 +34,8 @@ def run():
     currents_weight = np.linspace(cw_low, cw_high, num_points)
     currents_weight = 10**currents_weight
 
-    do_calculation = True
-    # do_calculation = False
+    # do_calculation = True
+    do_calculation = False
 
     if do_calculation:
         gaps = []
@@ -104,6 +104,7 @@ def run():
     handle, label = ax.get_legend_handles_labels()
     ax.legend(handle, label, loc="upper right")
     ax.tick_params(axis="x", pad=10)
+    plt.ticklabel_format(style='scientific', axis='y', scilimits=(0, 0))
     ax.grid()
-    plt.subplots_adjust(top=0.95, bottom=0.13, left=0.09, right=0.96)
+    plt.subplots_adjust(top=0.95, bottom=0.13, left=0.14, right=0.96)
     plt.savefig(f"output/final/currents_phase.pdf")

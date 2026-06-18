@@ -11,25 +11,25 @@ from . import utils
 
 def run():
 
-    name = "dip1"
-    appendix = True
-    num_triangles = 20
-    fendley_weight = 1.0
-    abc_lower = 1
-    abc_upper = 100
-    num_samples = abc_upper - abc_lower
-    cw_low = 1.5
-    cw_high = 2.1
-    num_points = 15
-    num_rows = 4
-    num_cols = 4
+    # name = "dip1"
+    # appendix = True
+    # num_triangles = 20
+    # fendley_weight = 1.0
+    # abc_lower = 1
+    # abc_upper = 300
+    # num_samples = abc_upper - abc_lower
+    # cw_low = 1.5
+    # cw_high = 2.1
+    # num_points = 15
+    # num_rows = 4
+    # num_cols = 4
 
     name = "dip2"
     appendix = True
     num_triangles = 20
     fendley_weight = 1.0
     abc_lower = 1
-    abc_upper = 15
+    abc_upper = 300
     num_samples = abc_upper - abc_lower
     cw_low = 25
     cw_high = 39
@@ -42,7 +42,7 @@ def run():
     # num_triangles = 20
     # fendley_weight = 1.0
     # abc_lower = 1
-    # abc_upper = 25
+    # abc_upper = 300
     # num_samples = abc_upper - abc_lower
     # cw_low = 1.75
     # cw_high = 1.85
@@ -79,7 +79,7 @@ def run():
 
     if do_calculation:
         all_values = []
-        with Pool(10) as pool:
+        with Pool(8) as pool:
             pool.map(run_config, configs)
 
         for _, currents_weight_factor, _, _, _, _ in configs:
