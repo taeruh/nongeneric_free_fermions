@@ -84,8 +84,8 @@ def get_mat(a, b, c, d):
     fendley = Fendley(2, ConstantWeight(a), ConstantWeight(b), ConstantWeight(c))
 
     graph = fendley.hamiltonian.get_frustration_graph()
-    # simplicial_mode = fendley.example_simplicial_modes["IIYII"]
-    simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
+    simplicial_mode = fendley.example_simplicial_modes["IIYII"]
+    # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIIIX"]
@@ -93,7 +93,7 @@ def get_mat(a, b, c, d):
         (d, simplicial_mode[0]),
         fendley.hamiltonian,
     )
-    generators.test_path_decompositions(graph)
+    generators.test_eta_path_decompositions(graph)
     return generators.init_gammas(do_eigval_zero_check=False)
 
 

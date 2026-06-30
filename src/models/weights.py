@@ -27,8 +27,8 @@ class ConstantWeight(Weight):
 class RandomWeight(Weight):
     def __init__(
         self,
-        low: np.float64 = np.float64(0.0),
-        high: np.float64 = np.float64(1.0),
+        low: np.float64 | float = np.float64(0.0),
+        high: np.float64 | float = np.float64(1.0),
         seed: int | None = None,
     ):
         self.seed = seed

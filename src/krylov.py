@@ -254,7 +254,7 @@ class Generators:
             del pathsum[pbi]
         return pathsum
 
-    def test_path_decompositions(self, graph: Graph | None = None):
+    def test_eta_path_decompositions(self, graph: Graph | None = None):
         if graph is None:
             graph = self.hamiltonian.get_frustration_graph()
         for vec in self.eta_vectors:
@@ -543,6 +543,46 @@ class Generators:
                     assert len(hit_indices) == len(eta_bilinear)
 
                 self.eta_path_bilinears[(i, j)] = path_bilinear
+
+    def init_eta_currents_paths(self):
+        self.eta_currents_paths: list[
+            list[tuple[np.float64, tuple[list[int], int]]]
+        ] = []
+        for l in range(self.num_generators):
+            if l % 2 == 0:
+                continue
+            current = []
+            for k in range(int((l - 1) / 2) + 1):
+                l_k = l - k
+                if k % 2 == 1:
+                    sign = -1
+                else:
+                    sign = 1
+                bilinear = self.eta_path_bilinears[(k, l_k)]
+                for weight, (path, phase) in bilinear:
+                    already_in = False
+                    for i, (cweight, (cpath, cphase)) in enumerate(current):
+                        if path == cpath:
+                            phase_difference = cphase - phase
+                            assert phase_difference % 2 == 0
+                            phase_sign = (-1)**(phase_difference // 2)
+                            current[i] = (
+                                cweight + sign * phase_sign * weight,
+                                (cpath, cphase),
+                            )
+                            already_in = True
+                            break
+                    if not already_in:
+                        current.append((sign * weight, (path, phase)))
+            to_remove = []
+            for i, (weight, _) in enumerate(current):
+                if np.isclose(weight, 0.0):
+                    to_remove.append(i)
+            for i in reversed(to_remove):
+                del current[i]
+            for weight, _ in current:
+                assert not np.isclose(weight, 0.0)
+            self.eta_currents_paths.append(current)
 
     def bilinear_gamma_projection(
         self, pauli: Pauli

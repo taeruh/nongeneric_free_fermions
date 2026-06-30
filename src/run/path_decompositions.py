@@ -6,16 +6,18 @@ from sage.all import graphs  # pyright: ignore  (this is sage.graphs ...)
 from rust_backend.paulis import Pauli, PauliSum
 from hamiltonian import Hamiltonian
 from models.fendley import Fendley
-from models.weights import ConstantWeight
+from models.weights import ConstantWeight, RandomWeight
 from krylov import Generators
 import graph_helper
 
 
 def run():
-    fendley = Fendley(2, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    # fendley = Fendley(4, ConstantWeight(np.sqrt(2)), ConstantWeight(1.1), ConstantWeight(np.pi/3))
+    # fendley = Fendley(4, ConstantWeight(1), ConstantWeight(1), ConstantWeight(1))
+    fendley = Fendley(4, RandomWeight(-1, 1), RandomWeight(-1, 1), RandomWeight(-1, 1))
     graph = fendley.hamiltonian.get_frustration_graph()
-    # simplicial_mode = fendley.example_simplicial_modes["IIYII"]
-    simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
+    simplicial_mode = fendley.example_simplicial_modes["IIYII"]
+    # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIIIX"]
@@ -23,7 +25,7 @@ def run():
         (1.0, simplicial_mode[0]),
         fendley.hamiltonian,
     )
-    generators.test_path_decompositions(graph)
+    generators.test_eta_path_decompositions(graph)
 
     mat = generators.init_gammas(do_eigval_zero_check=False)
 
@@ -31,25 +33,38 @@ def run():
     generators.init_eta_bilinears()
     generators.init_full_eta_bilinears()
 
-    for i in range(generators.num_generators):
-        for j in range(i + 1, generators.num_generators):
-            print(
-                (i, j),
-                [
-                    (w, p.to_string())
-                    for (w, p) in generators.full_eta_bilinears[(i, j)].to_py_list()
-                ],
-            )
-            print(
-                (j, i),
-                [
-                    (w, p.to_string())
-                    for (w, p) in generators.full_eta_bilinears[(j, i)].to_py_list()
-                ],
-            )
+    # for i in range(generators.num_generators):
+    #     for j in range(i + 1, generators.num_generators):
+    #         print(
+    #             (i, j),
+    #             [
+    #                 (w, p.to_string())
+    #                 for (w, p) in generators.full_eta_bilinears[(i, j)].to_py_list()
+    #             ],
+    #         )
+    #         print(
+    #             (j, i),
+    #             [
+    #                 (w, p.to_string())
+    #                 for (w, p) in generators.full_eta_bilinears[(j, i)].to_py_list()
+    #             ],
+    #         )
 
     generators.init_eta_path_bilinears([i for i in range(simplicial_mode[1])], graph)
     # graph.plot().save_image("output/fendley_graph.pdf")  # pyright: ignore
+
+    generators.init_eta_currents_paths()
+
+    for i, current in enumerate(generators.eta_currents_paths):
+        l = i * 2 + 1
+        print(l)
+        print(current)
+        for weight, (path, phase) in current:
+            is_induced, is_path = graph_helper.is_induced_path(graph, path)
+            assert is_induced & is_path
+        print()
+
+    return
 
     incorrect_paths = dict()
     len_incorrect_paths = 0
