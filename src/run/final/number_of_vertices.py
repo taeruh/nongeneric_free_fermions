@@ -144,9 +144,9 @@ def run():
         linestyles = ["dashed", "dotted", "dashdot"]
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         labels = [
-            r"\sigma^z_1 \sigma^z_2 \sigma^z_3",
-            r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4",
-            r"\sigma^z_1 \sigma^z_2 \sigma^z_3 \sigma^z_4 \sigma^z_5",
+            r"Z_0 \cdots Z_2",
+            r"Z_0 \cdots Z_3",
+            r"Z_0 \cdots Z_4",
         ]
         x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
         for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
@@ -178,7 +178,7 @@ def run():
         ax.set_ylabel(r"Number of vertices $N_V$")
         ax.set_xticks(x)
         ax.set_yscale("log")
-        ax.set_xlabel(r"Number of triangles $N$")
+        ax.set_xlabel(r"Number of triangles $\alpha(G)$")
         plt.subplots_adjust(top=0.97, bottom=0.15, left=0.13, right=0.97)
         plt.savefig("output/final/number_of_vertices.pdf")
 
@@ -264,5 +264,5 @@ def exp_2(x, a, b):
     return a * np.exp(x ** (1 / 2)) + b
 
 
-def exp(x, a, b):
-    return a * np.exp(x) + b
+def exp(x, a, b, c):
+    return a * np.exp(b*x) + c

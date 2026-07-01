@@ -13,9 +13,10 @@ def main():
     # final.triangle_phase.run()
     # final.number_of_claws.run()
     # final.number_of_vertices.run()
+    final.merged_number_plot.run()
 
     # test_lie_condition.run()
-    path_decompositions.run()
+    # path_decompositions.run()
     # test()
     # phase_diagram.fendley_phase()
     # phase_diagram.add_currents_phase()
