@@ -81,14 +81,14 @@ def run():
 
 
 def get_mat(a, b, c, d):
-    fendley = Fendley(2, ConstantWeight(a), ConstantWeight(b), ConstantWeight(c))
+    fendley = Fendley(3, ConstantWeight(a), ConstantWeight(b), ConstantWeight(c))
 
     graph = fendley.hamiltonian.get_frustration_graph()
-    simplicial_mode = fendley.example_simplicial_modes["IIYII"]
+    # simplicial_mode = fendley.example_simplicial_modes["IIYII"]
     # simplicial_mode = fendley.example_simplicial_modes["ZZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IZZZZ"]
     # simplicial_mode = fendley.example_simplicial_modes["IIZZZ"]
-    # simplicial_mode = fendley.example_simplicial_modes["IIIIX"]
+    simplicial_mode = fendley.example_simplicial_modes["IIIIX"]
     generators = Generators(
         (d, simplicial_mode[0]),
         fendley.hamiltonian,

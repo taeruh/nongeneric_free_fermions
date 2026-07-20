@@ -93,7 +93,7 @@ def run():
     ax.set_ylabel(r"Number of vertices $N_V$")
     ax.set_xticks(x)
     ax.set_yscale("log")
-    ax.set_xlabel(r"Number of triangles $\alpha(G)$")
+    ax.set_xlabel(r"Independence number $\alpha(G)$")
     ax.text(-0.1, 1.00, r"(a)", transform=ax.transAxes)
 
     ax = fig.add_subplot(gs[1, 0])
@@ -120,7 +120,7 @@ def run():
     matplotlib.rcParams["axes.unicode_minus"] = True
     ax.set_xticks(x)
     ax.set_yscale("log")
-    ax.set_xlabel(r"Number of triangles $\alpha(G)$")
+    ax.set_xlabel(r"Independence number $\alpha(G)$")
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles, labels, loc="upper left")
     ax.text(-0.1, 1.00, r"(b)", transform=ax.transAxes)

@@ -178,7 +178,7 @@ def run():
         ax.set_ylabel(r"Number of vertices $N_V$")
         ax.set_xticks(x)
         ax.set_yscale("log")
-        ax.set_xlabel(r"Number of triangles $\alpha(G)$")
+        ax.set_xlabel(r"Independence number $\alpha(G)$")
         plt.subplots_adjust(top=0.97, bottom=0.15, left=0.13, right=0.97)
         plt.savefig("output/final/number_of_vertices.pdf")
 
