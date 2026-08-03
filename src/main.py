@@ -1,7 +1,15 @@
 #!/usr/bin/env python
 
 import os
-from run import run, num_claws, num_vertices, phase_diagram, path_decompositions, test_lie_condition
+from run import (
+    run,
+    num_claws,
+    num_vertices,
+    phase_diagram,
+    path_decompositions,
+    test_lie_condition,
+    test_general_model_for_eta_paths,
+)
 from run import final
 
 
@@ -13,7 +21,9 @@ def main():
     # final.triangle_phase.run()
     # final.number_of_claws.run()
     # final.number_of_vertices.run()
-    final.merged_number_plot.run()
+    # final.merged_number_plot.run()
+
+    test_general_model_for_eta_paths.run()
 
     # test_lie_condition.run()
     # path_decompositions.run()

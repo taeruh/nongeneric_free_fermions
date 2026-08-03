@@ -112,13 +112,32 @@ class Generators:
                             self.pauli_to_eta_vector_map[comm_op.to_string()] = (
                                 len(self.eta_vector_to_pauli_map) - 1
                             )
-                            op_index = self.pauli_to_eta_vector_map[op.to_string()]
+                            # op could be in pauli_to_eta_vector_map with a minus sign,
+                            # e.g., the following sequence would have done that (note that
+                            # we add to eta independently of already_in_vectors): op is
+                            # not in eta and not in eta_vector_to_pauli_map -> get
+                            # weight;op so that op is in eta_vector_to_pauli_map and
+                            # pauli_to_eta_vector_map and add weight;op to eta -> get
+                            # -weight;op so that it is removed from eta -> get
+                            # any_weight,-op which gets not added to
+                            # pauli_to_eta_vector_map because it is already in
+                            # eta_vector_to_pauli_map but it initialises a new entry with
+                            # -op in eta as the +op entry has been removed in the previous
+                            # step
+                            if op.to_string() not in self.pauli_to_eta_vector_map:
+                                op_shifted = op.copy()
+                                op_shifted.add_to_phase(2)
+                                op_index = self.pauli_to_eta_vector_map[
+                                    op_shifted.to_string()
+                                ]
+                            else:
+                                op_index = self.pauli_to_eta_vector_map[op.to_string()]
                             comm_op_path = self.eta_vector_to_path_map[op_index][
                                 0
                             ].copy()
                             # NOTE: The fact that the following line makes sense is not
                             # trivial and one of the results in the paper; it actually
-                            # also produce "incorrect paths", however, they allways have
+                            # also produces "incorrect paths", however, they allways have
                             # zero weight in the eta_vectors, so I don't care about
                             # filtering them out. In more detail: We know that the etas
                             # can be decomposed into induced paths starting from the
@@ -265,7 +284,7 @@ class Generators:
                     assert op.is_equal_to(self.path_to_operator(path))
                     path_without_mode = path[0].copy()
                     path_without_mode.remove(-1)
-                    is_induced, is_path = graph_helper.is_induced_path(
+                    is_induced, is_path = graph_helper.is_induced_ordered_path(
                         graph, path_without_mode
                     )
                     assert is_induced

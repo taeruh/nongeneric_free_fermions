@@ -212,6 +212,10 @@ impl PauliSum {
         removal_helper(&mut self.0);
     }
 
+    pub fn single_add_without_removal(&mut self, weight: f64, pauli: &Pauli) {
+        add_helper(&mut self.0, weight, pauli);
+    }
+
     pub fn remove_zero_weights(&mut self) {
         removal_helper(&mut self.0);
     }

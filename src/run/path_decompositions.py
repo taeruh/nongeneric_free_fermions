@@ -58,13 +58,13 @@ def run():
     for i, current in enumerate(generators.eta_currents_paths):
         l = i * 2 + 1
         print(l)
-        print(current)
+        # print(current)
         for weight, (path, phase) in current:
-            is_induced, is_path = graph_helper.is_induced_path(graph, path)
+            is_induced, is_path = graph_helper.is_induced_ordered_path(graph, path)
             assert is_induced & is_path
         print()
 
-    return
+    # return
 
     incorrect_paths = dict()
     len_incorrect_paths = 0
@@ -75,8 +75,9 @@ def run():
     def incorrect_filter(path) -> bool:
         if len(path) not in allowed_lengths:
             return False
-        is_induced, is_path = graph_helper.is_induced_path(graph, path)
+        is_induced, is_path = graph_helper.is_induced_ordered_path(graph, path)
         if not (is_induced and is_path):
+            print(path)
             return False
         return True
 

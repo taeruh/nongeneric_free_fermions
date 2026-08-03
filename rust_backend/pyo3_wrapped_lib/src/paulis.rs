@@ -117,6 +117,10 @@ impl PauliSum {
         self.0.single_add(weight, &pauli.0)
     }
 
+    fn single_add_without_removal(&mut self, weight: f64, pauli: &Pauli) {
+        self.0.single_add_without_removal(weight, &pauli.0)
+    }
+
     fn remove_zero_weights(&mut self) {
         self.0.remove_zero_weights();
     }
