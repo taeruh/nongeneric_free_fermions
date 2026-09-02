@@ -20,3 +20,10 @@ system packages into the environment.
 finally do `pip install -r requirements.txt` to install the rest. (note that the
 requirements file does only list the top-level packages directly installed using pip;
 i.e., it's not useful for reproducibility). 
+
+## License
+
+This project is distributed under the terms of both the MIT license and the
+Apache License (Version 2.0).
+
+See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT).
