@@ -11,31 +11,31 @@ from . import utils
 
 def run():
 
-    # name = "dip1"
-    # appendix = True
-    # num_triangles = 20
-    # fendley_weight = 1.0
-    # abc_lower = 1
-    # abc_upper = 300
-    # num_samples = abc_upper - abc_lower
-    # cw_low = 1.5
-    # cw_high = 2.1
-    # num_points = 15
-    # num_rows = 4
-    # num_cols = 4
-
-    name = "dip2"
+    name = "dip1"
     appendix = True
     num_triangles = 20
     fendley_weight = 1.0
     abc_lower = 1
     abc_upper = 300
     num_samples = abc_upper - abc_lower
-    cw_low = 25
-    cw_high = 39
+    cw_low = 1.5
+    cw_high = 2.1
     num_points = 15
     num_rows = 4
     num_cols = 4
+
+    # name = "dip2"
+    # appendix = True
+    # num_triangles = 20
+    # fendley_weight = 1.0
+    # abc_lower = 1
+    # abc_upper = 300
+    # num_samples = abc_upper - abc_lower
+    # cw_low = 25
+    # cw_high = 39
+    # num_points = 15
+    # num_rows = 4
+    # num_cols = 4
 
     # name = "dip1"
     # appendix = False
@@ -72,8 +72,8 @@ def run():
         (num_triangles, 0.0, fendley_weight, abc_lower, abc_upper, num_samples)
     )
 
-    do_calculation = True
-    # do_calculation = False
+    # do_calculation = True
+    do_calculation = False
     # islog = False
     islog = True
 
@@ -261,10 +261,11 @@ def run():
     )
 
     if appendix:
-        plt.subplots_adjust(left=0.03, right=0.90, top=0.98, bottom=0.02)
+        plt.subplots_adjust(left=0.01, right=0.95, top=1.15, bottom=-0.15)
     else:
-        plt.subplots_adjust(left=0.05, right=0.90, top=0.98, bottom=0.02)
-    plt.savefig(f"output/final/triangle_phase_{name}_appendix_{appendix}.pdf")
+        plt.subplots_adjust(left=0.01, right=0.91, top=1.2, bottom=-0.2)
+    # plt.savefig(f"output/final/triangle_phase_{name}_appendix_{appendix}.pdf")
+    plt.savefig(f"output/final/triangle_phase_{name}_appendix_{appendix}.png")
 
 
 def run_config(config):

@@ -18,12 +18,12 @@ def main():
     os.makedirs("output", exist_ok=True)
 
     # final.currents_phase.run()
-    # final.triangle_phase.run()
+    final.triangle_phase.run()
     # final.number_of_claws.run()
     # final.number_of_vertices.run()
     # final.merged_number_plot.run()
 
-    test_general_model_for_eta_paths.run()
+    # test_general_model_for_eta_paths.run()
 
     # test_lie_condition.run()
     # path_decompositions.run()
