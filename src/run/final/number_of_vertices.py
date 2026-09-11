@@ -144,9 +144,9 @@ def run():
         linestyles = ["dashed", "dotted", "dashdot"]
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         labels = [
-            r"Z_0 \cdots Z_2",
-            r"Z_0 \cdots Z_3",
-            r"Z_0 \cdots Z_4",
+            r"Z_1 \cdots Z_3",
+            r"Z_1 \cdots Z_4",
+            r"Z_1 \cdots Z_5",
         ]
         x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
         for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
@@ -265,4 +265,4 @@ def exp_2(x, a, b):
 
 
 def exp(x, a, b, c):
-    return a * np.exp(b*x) + c
+    return a * np.exp(b * x) + c

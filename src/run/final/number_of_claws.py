@@ -111,9 +111,9 @@ def run():
         ax = fig.add_subplot(gs[0, 0])
         x = [i for i in range(low_num_triangles, up_num_triangles + 1)]
         labels = [
-            r"Z_0 \cdots Z_2",
-            r"Z_0 \cdots Z_3",
-            r"Z_0 \cdots Z_4",
+            r"Z_1 \cdots Z_3",
+            r"Z_1 \cdots Z_4",
+            r"Z_1 \cdots Z_5",
         ]
         for y, label in zip(
             all_num_claws,

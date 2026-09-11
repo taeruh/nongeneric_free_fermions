@@ -11,18 +11,18 @@ from . import utils
 
 def run():
 
-    name = "dip1"
-    appendix = True
-    num_triangles = 20
-    fendley_weight = 1.0
-    abc_lower = 1
-    abc_upper = 300
-    num_samples = abc_upper - abc_lower
-    cw_low = 1.5
-    cw_high = 2.1
-    num_points = 15
-    num_rows = 4
-    num_cols = 4
+    # name = "dip1"
+    # appendix = True
+    # num_triangles = 20
+    # fendley_weight = 1.0
+    # abc_lower = 1
+    # abc_upper = 300
+    # num_samples = abc_upper - abc_lower
+    # cw_low = 1.5
+    # cw_high = 2.1
+    # num_points = 15
+    # num_rows = 4
+    # num_cols = 4
 
     # name = "dip2"
     # appendix = True
@@ -37,18 +37,18 @@ def run():
     # num_rows = 4
     # num_cols = 4
 
-    # name = "dip1"
-    # appendix = False
-    # num_triangles = 20
-    # fendley_weight = 1.0
-    # abc_lower = 1
-    # abc_upper = 300
-    # num_samples = abc_upper - abc_lower
-    # cw_low = 1.75
-    # cw_high = 1.85
-    # num_points = 3
-    # num_rows = 2
-    # num_cols = 2
+    name = "dip1"
+    appendix = False
+    num_triangles = 20
+    fendley_weight = 1.0
+    abc_lower = 1
+    abc_upper = 300
+    num_samples = abc_upper - abc_lower
+    cw_low = 1.75
+    cw_high = 1.85
+    num_points = 3
+    num_rows = 2
+    num_cols = 2
 
     diff = num_rows * num_cols - num_points
     assert (
@@ -168,7 +168,7 @@ def run():
         ax.set_aspect("equal")
         ax.axis("off")
         ax.set_title(
-            rf"$a = {cw:.3f}$",
+            rf"$a' = {cw:.3f}$",
             pad=7,
         )
         return cbar
@@ -263,9 +263,9 @@ def run():
     if appendix:
         plt.subplots_adjust(left=0.01, right=0.95, top=1.15, bottom=-0.15)
     else:
-        plt.subplots_adjust(left=0.01, right=0.91, top=1.2, bottom=-0.2)
+        plt.subplots_adjust(left=0.01, right=0.91, top=1.19, bottom=-0.2)
     # plt.savefig(f"output/final/triangle_phase_{name}_appendix_{appendix}.pdf")
-    plt.savefig(f"output/final/triangle_phase_{name}_appendix_{appendix}.png")
+    plt.savefig(f"output/final/triangle_phase_{name}_appendix_{appendix}.png", dpi = 1000)
 
 
 def run_config(config):

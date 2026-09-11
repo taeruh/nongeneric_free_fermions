@@ -58,9 +58,9 @@ def run():
     linestyles = ["dashed", "dotted", "dashdot"]
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     labels = [
-        r"Z_0 \cdots Z_2",
-        r"Z_0 \cdots Z_3",
-        r"Z_0 \cdots Z_4",
+        r"Z_1 \cdots Z_3",
+        r"Z_1 \cdots Z_4",
+        r"Z_1 \cdots Z_5",
     ]
     x = [i for i in range(vertex_low_num_triangles, vertex_up_num_triangles + 1)]
     for i, (y, label) in enumerate(zip(all_num_vertices, simplicial_mode_choices)):
@@ -76,7 +76,9 @@ def run():
         try:
             popt, _ = optimize.curve_fit(fn, xcut, ycut)
             print(popt)
-            long_x = np.arange(vertex_low_num_triangles, vertex_up_num_triangles + 1, 0.1)
+            long_x = np.arange(
+                vertex_low_num_triangles, vertex_up_num_triangles + 1, 0.1
+            )
             ax.plot(
                 long_x,
                 fn(np.array(long_x), *popt),
@@ -99,9 +101,9 @@ def run():
     ax = fig.add_subplot(gs[1, 0])
     x = [i for i in range(claw_low_num_triangles, claw_up_num_triangles + 1)]
     labels = [
-        r"Z_0 \cdots Z_2",
-        r"Z_0 \cdots Z_3",
-        r"Z_0 \cdots Z_4",
+        r"Z_1 \cdots Z_3",
+        r"Z_1 \cdots Z_4",
+        r"Z_1 \cdots Z_5",
     ]
     for y, label in zip(
         all_num_claws,

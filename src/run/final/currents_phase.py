@@ -93,10 +93,10 @@ def run():
 
     max_gap = 0
     for num_triangles, gap in zip(nums_triangles, gaps):
-        ax.plot(currents_weight, gap, label=f"N = {num_triangles}")
+        ax.plot(currents_weight, gap, label=rf"$\alpha(G) = {num_triangles}$")
         max_gap = max(max_gap, max(gap))
 
-    ax.set_xlabel(r"Currents weight $a$")
+    ax.set_xlabel(r"Currents weight $a'$")
     ax.set_ylabel(r"Gap $\Delta$")
     ax.set_xscale("log")
     ax.set_xlim(currents_weight[0], currents_weight[-1])
